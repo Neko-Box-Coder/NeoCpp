@@ -1,0 +1,6 @@
+[submodule "Defer.hpp"]
+	path = Include/Nstd/External/Defer.hpp
+	url = https://github.com/Neko-Box-Coder/Defer.hpp.git
+[submodule "MacroPowerToys"]
+	path = Include/Nstd/External/MacroPowerToys
+	url = https://github.com/Neko-Box-Coder/MacroPowerToys.git
