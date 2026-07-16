@@ -1,14 +1,12 @@
 #ifndef NSTD_ALLOCATOR_HPP
 #define NSTD_ALLOCATOR_HPP
 
-#include "Defer.hpp"
-
 /*
 Usage:
 ```c++
 {
     Nstd::Allocator a = a.Init<int64_t, Nstd::HeapAllocator>(32);   //Reserve 32 int64_t
-    defer { a.Destroy(); };
+    ndefer { a.Destroy(); };
     int64_t* ints = a.Malloc<int64_t>(16);                          //Allocate 16 int64_t
     (void)ints;
     //...
@@ -22,10 +20,11 @@ Usage:
 ```
 */
 
+#include "ncpp.hpp"
 #include "./TaggedUnion.hpp"
 
-#include <stdlib.h>
 #include <string.h>
+#include <stdlib.h>
 
 namespace Nstd
 {
@@ -80,14 +79,23 @@ namespace Nstd
     
     struct Allocator
     {
-        TaggedUnion<HeapAllocator, ArenaAllocator, CustomAllocator> Impl;
+        TaggedUnion<HeapAllocator, ArenaAllocator, CustomAllocator, Allocator*> Impl;
         
         template<typename T, typename AllocType>
-        static inline Allocator Init(uint64_t reserveSize)
+        static inline Allocator Init(uint64_t reserveSize) ndefer_with(Destroy(ret_val))
         {
             Allocator a = {};
             a.Impl = a.Impl.template Init<AllocType>( AllocType::template Init<T>(reserveSize) );
-            return {};
+            return a;
+        }
+        
+        template<typename T>
+        static inline Allocator InitProxy(  Allocator* alloc, 
+                                            uint64_t reserveSize) ndefer_with(Destroy(ret_val))
+        {
+            Allocator a = {};
+            a.Impl = a.Impl.template Init<Allocator*>(alloc);
+            return a;
         }
         
         #define INTERN_NSTD_DISPATCH(action, tempRet) \
@@ -95,10 +103,11 @@ namespace Nstd
             { \
                 switch(Impl.Index) \
                 { \
-                    case typeof(Impl)::GetIndex<HeapAllocator>(): \
+                    case ntypeof(Impl)::GetIndex<HeapAllocator>(): \
                         return Impl.Get<HeapAllocator>().action; \
-                    case typeof(Impl)::GetIndex<ArenaAllocator>(): \
-                    case typeof(Impl)::GetIndex<CustomAllocator>(): \
+                    case ntypeof(Impl)::GetIndex<ArenaAllocator>(): \
+                    case ntypeof(Impl)::GetIndex<CustomAllocator>(): \
+                    case ntypeof(Impl)::GetIndex<Allocator*>(): \
                         tempRet; \
                     default: \
                         tempRet; \
@@ -142,6 +151,7 @@ namespace Nstd
         
         #undef INTERN_NSTD_DISPATCH
     };
+    
 }
 
 

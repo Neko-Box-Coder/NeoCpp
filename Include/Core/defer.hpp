@@ -1,5 +1,5 @@
-#ifndef NSTD_DEFER_HPP
-#define NSTD_DEFER_HPP
+#ifndef NCPP_DEFER_HPP
+#define NCPP_DEFER_HPP
 
 /*
 Usage:
@@ -21,5 +21,6 @@ Usage:
 
 #include "./External/Defer.hpp/Defer.hpp"
 
+#define ndefer defer
 
 #endif

@@ -8,25 +8,34 @@ Usage:
     Nstd::TaggedUnion<int, signed char, uint8_t> t = t.Init<uint8_t>(9);
     switch(t.Index)
     {
-        case tyepof(t)::GetIndex<int>():
+        case ntyepof(t)::GetIndex<int>():
             printf("int\n");
             break;
-        case tyepof(t)::GetIndex<signed char>():
+        case ntyepof(t)::GetIndex<signed char>():
             printf("char\n");
             break;
-        case tyepof(t)::GetIndex<uint8_t>():
+        case ntyepof(t)::GetIndex<uint8_t>():
             printf("uint8_t\n");
             break;
     }
     
     t.Get<uint8_t>() = 10;
     printf("t: %d\n", t.Get<uint8_t>());
+    printf("t.Is<int>(): %s\n", (t.Is<int>() ? "true" : "false"));
+    printf("t.Is<uint8_t>(): %s\n", (t.Is<uint8_t>() ? "true" : "false"));
 }
+```
+
+Output:
+```
+uint8_t
+t: 10
+t.Is<int>(): false
+t.Is<uint8_t>(): true
 ```
 */
 
-#include "./TemplateHelpers.hpp"
-
+#include "ncpp.hpp"
 
 namespace Nstd
 {
@@ -48,7 +57,7 @@ namespace Nstd
         
         uint8_t Index;
     
-        template<typename T, typename EnableIf< IsSame<T, T1>::Value >::Type = true >
+        template<typename T, nenable_if(nis_same(T, T1))>
         static TaggedUnion Init(const T& val)
         {
             TaggedUnion returnT;
@@ -57,26 +66,31 @@ namespace Nstd
             return returnT;
         }
         
-        template<typename T, typename EnableIf< IsSame<T, T1>::Value >::Type = true >
+        template<typename T, nenable_if(nis_same(T, T1))>
         static constexpr uint8_t GetIndex()
         {
             return 1;
         }
         
-        template<typename T, typename EnableIf< IsSame<T, T1>::Value >::Type = true >
+        template<typename T, nenable_if(nis_same(T, T1))>
         T1& Get()
         {
             return Ts.TT1;
         }
         
-        #define INTERN_MATCHED(currentT) IsSame<T, currentT>::Value
-        #define INTERN_DEFINED(previousT, currentT, i) !IsSame<previousT, currentT>::Value && i
+        template<typename T, nenable_if(nis_same(T, T1))>
+        const T1& Get() const
+        {
+            return Ts.TT1;
+        }
+        
+        #define INTERN_MATCHED(currentT) nis_same(T, currentT)
+        #define INTERN_DEFINED(previousT, currentT, i) !nis_same(previousT, currentT) && i
         
         
         #define INTERN_DECLARE_FUNCS(previousT, currentT, dataField, i) \
             template<   typename T, \
-                        typename EnableIf<  INTERN_MATCHED(currentT) && \
-                                            INTERN_DEFINED(previousT, currentT, i) >::Type = true> \
+                        nenable_if(INTERN_MATCHED(currentT) && INTERN_DEFINED(previousT, currentT, i))> \
             static TaggedUnion Init(const currentT& val) \
             { \
                 TaggedUnion returnT; \
@@ -86,17 +100,22 @@ namespace Nstd
             } \
             \
             template<   typename T, \
-                        typename EnableIf<  INTERN_MATCHED(currentT) && \
-                                            INTERN_DEFINED(previousT, currentT, i) >::Type = true> \
+                        nenable_if(INTERN_MATCHED(currentT) && INTERN_DEFINED(previousT, currentT, i))> \
             static constexpr uint8_t GetIndex() \
             { \
                 return i; \
             } \
             \
             template<   typename T, \
-                        typename EnableIf<  INTERN_MATCHED(currentT) && \
-                                            INTERN_DEFINED(previousT, currentT, i) >::Type = true> \
+                        nenable_if(INTERN_MATCHED(currentT) && INTERN_DEFINED(previousT, currentT, i))> \
             currentT& Get() \
+            { \
+                return Ts.dataField; \
+            } \
+            \
+            template<   typename T, \
+                        nenable_if(INTERN_MATCHED(currentT) && INTERN_DEFINED(previousT, currentT, i))> \
+            const currentT& Get() const \
             { \
                 return Ts.dataField; \
             }
@@ -108,6 +127,12 @@ namespace Nstd
         INTERN_DECLARE_FUNCS(T5, T6, TT6, 6)
         INTERN_DECLARE_FUNCS(T6, T7, TT7, 7)
         INTERN_DECLARE_FUNCS(T7, T8, TT8, 8)
+        
+        template<typename T>
+        bool Is() const 
+        {
+            return Index == GetIndex<T>();
+        }
     };
 }
 
