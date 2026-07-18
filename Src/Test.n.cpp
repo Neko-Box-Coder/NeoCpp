@@ -8,47 +8,60 @@ IncludePaths:
 */
 
 
-#include "ncpp.hpp"
+#include "ncpp.n.hpp"
 
-#include "Nstd/TaggedUnion.hpp"
-#include "Nstd/Allocator.hpp"
-#include "Nstd/List.hpp"
-#include "Nstd/LinkedList.hpp"
-//#include "Nstd/ResultLite.hpp"
+#include "Nstd/TaggedUnion.n.hpp"
+#include "Nstd/Allocator.n.hpp"
+#include "Nstd/List.n.hpp"
+#include "Nstd/LinkedList.n.hpp"
 
 #include <stdint.h>
 #include <stdio.h>
 
 nresult<int> TestError(int v)
 {
+    nuse_error_defer();
+    nerror_defer { printf("This should be called by nerror_defer\n"); };
+    
     (void)v;
     return nerror_msg("Test Error");
 }
 
 nresult<int> TestValue(int v)
 {
-    return {v};
+    return v;
 }
 
 nresult<int> TestNested(int v)
 {
+    nuse_error_defer();
+    nerror_defer { printf("This should not be called by nerror_defer\n"); };
+    
     int v2 = TestValue(v).ntry();
-    return {v2};
+    return v2;
+}
+
+nresult<int> TestNestedError(int v)
+{
+    nuse_error_defer();
+    nerror_defer { printf("This should be called by nerror_defer again\n"); };
+    int v2 = TestError(v).ntry();
+    return v2;
 }
 
 nresult<int> TestCheck(int v)
 {
     ncheck_eq(v, 5);
-    return {v + 5};
+    return v + 5;
 }
 
 nresult<int> TestCheckFmt(int v)
 {
     ncheck_eq_fmt(v, 5, "v: %d", v);
-    return {v + 5};
+    return v + 5;
 }
 
-int main(int argc, char** argv)
+nresult<int> Main(int argc, char** argv)
 {
     //Nstd/TaggedUnion.hpp
     {
@@ -110,25 +123,37 @@ int main(int argc, char** argv)
     
     //Core/result.hpp
     {
-        #define PRINT_ERRORS() \
-            do \
-            { \
-                printf("Error: \n    %s\nStack trace:\n", err.message); \
-                for(int i = 0; i < err.traces_len; ++i) \
-                    printf(ntrace_fmt("    at ", err.traces[i], "\n")); \
-                printf("\n"); \
-            } while(0)
+        #define PRINT_STR_ERROR() err.string(msgMem, 256); printf("%s\n---------------\n", msgMem)
+        char* msgMem = (char*)malloc(256);
+        ndefer { free(msgMem); };
         
-        int r = TestError(5).ntry_act(PRINT_ERRORS());
-        r = TestNested(5).ntry_act(PRINT_ERRORS());
-        r = TestCheck(r).ntry_act(PRINT_ERRORS());
-        r = TestCheck(r).ntry_act(PRINT_ERRORS());
-        r = TestCheckFmt(r).ntry_act(PRINT_ERRORS());
+        int r = TestError(5).ntry_act(PRINT_STR_ERROR());
+        r = TestNestedError(5).ntry_act(PRINT_STR_ERROR());
+        r = TestNested(5).ntry_act(PRINT_STR_ERROR());
+        r = TestCheck(r).ntry_act(PRINT_STR_ERROR());
+        r = TestCheck(r).ntry_act(PRINT_STR_ERROR());
+        r = TestCheckFmt(r).ntry_act(PRINT_STR_ERROR());
+        
+        //NOTE: Traces can be accessed inside `ntry_act()` with `err.traces`, where printf arguments
+        //      for printing a single trace can be obtained with 
+        //      `ntrace_fmt(print prefix, trace, print suffix)` and used like so 
+        //      `printf(ntrace_fmt(...))`
+        
+        nresult<int> res = TestValue(3);
+        r = res.value;
+        bool hasError = res.err;
+        if(hasError)
+        {
+            error_info errInfo = *res.err;
+            (void)errInfo;
+        }
+        r = res.value_or(3);
+        r = res.value_or_default();
     }
     
     //Core/optional.hpp
     {
-        noptional<int> optionalInt = {};
+        noptional<int> optionalInt = nnone;
         printf("optionalInt?: %s\n", (optionalInt ? "true" : "false"));
         printf("optionalInt.value_or_default(): %d\n", optionalInt.value_or_default());
         printf("optionalInt.value_or(5): %d\n", optionalInt.value_or(5));
@@ -142,28 +167,43 @@ int main(int argc, char** argv)
         Nstd::Allocator alloc = alloc.Init<int, Nstd::HeapAllocator>(32);
         ndefer { alloc.Destroy(); };
         
-        Nstd::List<int> list = list.Init(alloc, 4); //Initial size of 4
-        for(int i = 0; i < list.Len; ++i)
-            list.Data[i] = i;
-        list.Add(4);
-        list.Reserve(7);
-        list.Insert(5, 4);
-        list.Remove(4);
-        
-        //TODO(NOW)
-        //AddRange
-        //InsertRange
-        //RemoveRange
-        
+        Nstd::List<int> list = list.NSTD_INIT_VALUES(nref alloc, 1, 2, 3);
         for(int i = 0; i < list.Len; ++i)
             printf("list.At(%d): %d\n", i, list.At(i));
+        list.Free().ntry();
         
-        list = list.NSTD_INIT_VALUES(alloc, 1, 2, 3);
+        int nums[] = {7, 8, 9};
+        Nstd::View<int> numsView = { nums, sizeof(nums) / sizeof(nums[0]) };
+        list = list.Init(nref alloc, 4); //Initial size of 4
+        for(int i = 0; i < list.Len; ++i)
+            list.Data[i] = i;
+        
+        list.Add(4).ntry();                     //0 1 2 3 (4)
+        list.Reserve(10).ntry();
+        list.Insert(4, 5).ntry();               //0 1 2 3 (5) 4
+        list.Remove(3).ntry();                  //0 1 2 x 5 4
+        list.AddRange(numsView).ntry();         //0 1 2 5 4 (7 8 9)
+        list.InsertRange(1, numsView).ntry();   //0 (7 8 9) 1 2 5 4 7 8 9
+        list.RemoveRange(2, 4).ntry();          //0 7 x x x x 5 4 7 8 9
         for(int i = 0; i < list.Len; ++i)
             printf("list.At(%d): %d\n", i, list.At(i));
     }
     
+    //Nstd/LinkedList.hpp
+    {
+        
+    }
     
     
     return 0;
+}
+
+int main(int argc, char** argv)
+{
+    int r = Main(argc, argv).ntry_act(  printf("FAILED.\n");
+                                        printf("Error: \n    %s\nStack trace:\n", err.message);
+                                        for(int i = 0; i < err.traces_len; ++i)
+                                            printf(ntrace_fmt("    at ", err.traces[i], "\n"));
+                                        return 1);
+    return r;
 }

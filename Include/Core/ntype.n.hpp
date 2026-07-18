@@ -1,5 +1,5 @@
-#ifndef NCPP_TYPE_HPP
-#define NCPP_TYPE_HPP
+#ifndef NCPP_NTYPE_N_HPP
+#define NCPP_NTYPE_N_HPP
 
 #include <stdint.h>
 

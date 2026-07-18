@@ -1,7 +1,7 @@
-#ifndef NSTD_VIEW_HPP
-#define NSTD_VIEW_HPP
+#ifndef NSTD_VIEW_N_HPP
+#define NSTD_VIEW_N_HPP
 
-#include "ncpp.hpp"
+#include "ncpp.n.hpp"
 #include <stdint.h>
 
 namespace Nstd

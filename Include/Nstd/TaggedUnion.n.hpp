@@ -1,5 +1,5 @@
-#ifndef NSTD_TAGGED_UNION_HPP
-#define NSTD_TAGGED_UNION_HPP
+#ifndef NSTD_TAGGED_UNION_N_HPP
+#define NSTD_TAGGED_UNION_N_HPP
 
 /*
 Usage:
@@ -35,7 +35,7 @@ t.Is<uint8_t>(): true
 ```
 */
 
-#include "ncpp.hpp"
+#include "ncpp.n.hpp"
 
 namespace Nstd
 {

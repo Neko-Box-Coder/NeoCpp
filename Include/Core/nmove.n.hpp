@@ -1,5 +1,5 @@
-#ifndef NCPP_MOVE_HPP
-#define NCPP_MOVE_HPP
+#ifndef NCPP_NMOVE_N_HPP
+#define NCPP_NMOVE_N_HPP
 
 /*
 Usage:

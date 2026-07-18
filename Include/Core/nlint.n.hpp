@@ -1,5 +1,5 @@
-#ifndef NCPP_LINT_HPP
-#define NCPP_LINT_HPP
+#ifndef NCPP_NLINT_N_HPP
+#define NCPP_NLINT_N_HPP
 
 #define ndefer_with(func) 
 #define nin_ref                  //Read only reference parameter

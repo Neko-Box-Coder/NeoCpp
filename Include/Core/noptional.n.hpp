@@ -1,11 +1,11 @@
-#ifndef NCPP_OPTIONAL_HPP
-#define NCPP_OPTIONAL_HPP
+#ifndef NCPP_NOPTIONAL_N_HPP
+#define NCPP_NOPTIONAL_N_HPP
 
 /*
 Usage:
 ```c++
 {
-    noptional<int> optionalInt = {};
+    noptional<int> optionalInt = nnone;
     printf("optionalInt?: %s\n", (optionalInt ? "true" : "false"));
     printf("optionalInt.value_or_default(): %d\n", optionalInt.value_or_default());
     printf("optionalInt.value_or(5): %d\n", optionalInt.value_or(5));
@@ -25,6 +25,10 @@ optionalInt.value_or(5): 5
 
 namespace ncpp
 {
+    struct noptional_nothing {};
+    
+    #define nnone ncpp::noptional_nothing()
+    
     template<typename T>
     struct noptional
     {
@@ -32,31 +36,15 @@ namespace ncpp
         bool exists;
         
         inline noptional() = default;
-        inline noptional(T val)
-        {
-            value = val;
-            exists = true;
-        }
+        inline noptional(noptional_nothing n) { value = {}; exists = false; }
+        inline noptional(T val) { value = val; exists = true; }
         
-        inline operator bool() const
-        {
-            return exists;
-        }
-        
-        inline bool operator!() const
-        {
-            return !exists;
-        }
-        
-        inline T& operator*()
-        {
-            return value;
-        }
-        
-        inline T& operator*() const
-        {
-            return value;
-        }
+        inline operator bool() const { return exists; }
+        inline bool operator!() const { return !exists; }
+        inline T& operator*() { return value; }
+        inline T& operator*() const { return value; }
+        inline T* operator->() { return &value; }
+        inline T* operator->() const { return &value; }
         
         inline noptional& operator=(const T& other)
         {

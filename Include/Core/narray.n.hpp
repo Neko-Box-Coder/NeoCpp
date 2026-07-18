@@ -1,5 +1,5 @@
-#ifndef NCPP_ARRAY_HPP
-#define NCPP_ARRAY_HPP
+#ifndef NCPP_NARRAY_N_HPP
+#define NCPP_NARRAY_N_HPP
 
 /*
 Usage:

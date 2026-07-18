@@ -1,5 +1,5 @@
-#ifndef NSTD_ALLOCATOR_HPP
-#define NSTD_ALLOCATOR_HPP
+#ifndef NSTD_ALLOCATOR_N_HPP
+#define NSTD_ALLOCATOR_N_HPP
 
 /*
 Usage:
@@ -20,8 +20,8 @@ Usage:
 ```
 */
 
-#include "ncpp.hpp"
-#include "./TaggedUnion.hpp"
+#include "ncpp.n.hpp"
+#include "./TaggedUnion.n.hpp"
 
 #include <string.h>
 #include <stdlib.h>
@@ -38,6 +38,12 @@ namespace Nstd
         static inline HeapAllocator Init(uint64_t reserveSize)
         {
             return {};
+        }
+        
+        template<typename T>
+        static inline void Reserve(uint64_t reserveSize)
+        {
+            return;
         }
         
         template<typename T>
@@ -113,6 +119,12 @@ namespace Nstd
                         tempRet; \
                 } \
             } while(0)
+        
+        template<typename T>
+        inline void Reserve(uint64_t size)
+        {
+            INTERN_NSTD_DISPATCH(Reserve<T>(size), return);
+        }
         
         template<typename T>
         inline T* Malloc(uint64_t size)

@@ -36,11 +36,11 @@ list.At(2): 3
 ```
 */
 
-#include "ncpp.hpp"
+#include "ncpp.n.hpp"
 
-#include "./Allocator.hpp"
+#include "./Allocator.n.hpp"
+#include "./View.n.hpp"
 #include "./External/MacroPowerToys/ArgsCount.h"
-#include "./View.hpp"
 
 #include <stdint.h>
 #include <stdarg.h>
@@ -148,22 +148,17 @@ namespace Nstd
             return {};
         }
         
-        inline nresult<void> Insert(T t, uint64_t index)
+        inline nresult<void> Insert(uint64_t index, T t)
         {
             ncheck_lte(index, Len);
             ReserveAhead(Len + 1).ntry();
             ++Len;
             
             if(index != Len)
-            {
                 memmove(&Data[index + 1], &Data[index], sizeof(T) * (Len - index));
-                return {};
-            }
-            else
-            {
-                Data[index] = t;
-                return {};
-            }
+            
+            Data[index] = t;
+            return {};
         }
         
         inline nresult<void> Remove(uint64_t index)
@@ -181,7 +176,6 @@ namespace Nstd
                 return {};
             }
         }
-        
         
         inline nresult<void> AddRange(View<T> view)
         {
@@ -203,6 +197,8 @@ namespace Nstd
             if(index != Len)
                 memmove(&Data[index + view.Len], &Data[index], sizeof(T) * (Len - index));
             memcpy(&Data[index], view.Data, sizeof(T) * view.Len);
+            Len += view.Len;
+            return {};
         }
         
         inline nresult<void> RemoveRange(uint64_t index, uint64_t len)
@@ -212,6 +208,16 @@ namespace Nstd
             if(index + len != Len)
                 memmove(&Data[index], &Data[index + len], sizeof(T) * (Len - index - len));
             Len -= len;
+            return {};
+        }
+        
+        inline nresult<void> Free()
+        {
+            ncheck_true(Alloc);
+            Alloc->Free(Data);
+            Data = NULL;
+            Len = 0;
+            Cap = 0;
             return {};
         }
     };
