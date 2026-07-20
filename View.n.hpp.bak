@@ -1,0 +1,36 @@
+#ifndef NSTD_VIEW_N_HPP
+#define NSTD_VIEW_N_HPP
+
+#include "ncpp.n.hpp"
+
+#include <stdint.h>
+#include <string.h>
+
+namespace Nstd
+{
+    template<typename T>
+    struct View
+    {
+        T* Data;
+        uint64_t Len;
+        
+        inline View<const T> Const() const
+        {
+            return { Data, Len };
+        }
+    };
+    
+    inline View<char> CStrView(char* str)
+    {
+        return { str, strlen(str) };
+    }
+    
+    inline View<const char> ConstCStrView(const char* str)
+    {
+        return { str, strlen(str) };
+    }
+    
+    #define NSTD_ARRAY_TO_VIEW(arr) Nstd::View<nno_ref( ntypeof(arr[0]) )> { arr, narray_cap(arr) }
+}
+
+#endif

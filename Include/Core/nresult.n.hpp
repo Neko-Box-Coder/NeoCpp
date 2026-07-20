@@ -59,8 +59,8 @@ struct nresult
 };
 ```
 
-`trace ntrace()`: Create a trace for the invoked location
-`(printf args) ntrace_fmt([const char* prefix], trace t, [const char* suffix])`: Creates a formatted 
+`trace ntrace()`: Create a trace at the invoked location
+`(printf args) ntrace_fmt([const char* prefix], trace t, [const char* suffix])`: Creates a formated 
     string arguments with `prefix` and `suffix` prepended before and appended to the formatted 
     string which can be used with printf, like so: `printf( ntrace_fmt("    at ", myTrace, "\n") );`
 

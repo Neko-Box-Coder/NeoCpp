@@ -52,6 +52,19 @@ namespace ncpp
     #endif
     
     #define ntypeof(x) decltype(x)
+    
+    
+    template<class T> struct no_ref_s { typedef T type; };
+    template<class T> struct no_ref_s<T&> { typedef T type; };
+    template<class T> struct no_ref_s<T&&> { typedef T type; };
+    
+    #define nno_ref(t) ncpp::no_ref_s<t>::type
+
+
+    template<class T> struct no_const_s { typedef T type; };
+    template<class T> struct no_const_s<const T> { typedef T type; };
+    
+    #define nno_const(t) ncpp::no_const_s<t>::type
 }
 
 #endif

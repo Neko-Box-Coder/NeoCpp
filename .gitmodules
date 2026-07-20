@@ -10,3 +10,6 @@
 [submodule "Nstd/MacroPowerToys"]
 	path = Include/Nstd/External/MacroPowerToys
 	url = https://github.com/Neko-Box-Coder/MacroPowerToys.git
+[submodule "uthash"]
+	path = Include/Nstd/External/uthash
+	url = https://github.com/troydhanson/uthash.git

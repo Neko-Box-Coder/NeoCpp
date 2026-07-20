@@ -8,6 +8,8 @@
 #include "./Core/noptional.n.hpp"
 #include "./Core/ntype.n.hpp"
 #include "./Core/nresult.n.hpp"
+#include "./Core/nview.n.hpp"
+#include "./Core/nstdint.n.hpp"
 
 using namespace ncpp;
 

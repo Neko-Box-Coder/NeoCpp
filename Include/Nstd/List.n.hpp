@@ -39,7 +39,6 @@ list.At(2): 3
 #include "ncpp.n.hpp"
 
 #include "./Allocator.n.hpp"
-#include "./View.n.hpp"
 #include "./External/MacroPowerToys/ArgsCount.h"
 
 #include <stdint.h>
@@ -56,32 +55,43 @@ namespace Nstd
         uint64_t Len;
         uint64_t Cap;
         
-        inline List Init(nref Allocator& alloc, uint64_t initSize)
+        inline List Init(nref Allocator& alloc, uint64_t reserveSize)
         {
             List retList;
             retList.Alloc = &alloc;
             retList.Dummy = {};
-            retList.Data = alloc.Malloc<T>(initSize);
-            retList.Len = initSize;
-            retList.Cap = initSize;
+            retList.Data = alloc.Malloc<T>(reserveSize);
+            retList.Len = 0;
+            retList.Cap = retList.Data ? reserveSize : 0;
             return retList;
         }
         
-        inline List InitValues(nref Allocator& alloc, uint8_t count,  ...)
+        
+        template<typename... Ts>
+        inline nresult<void> AddValues(Ts... values)
         {
-            List<T> l = Init(alloc, count);
+            T* arr[] = { &values... };
+            ReserveAhead(Len + narray_cap(arr)).ntry();
             
-            va_list args;
-            va_start(args, count);
-            for (int i = 0; i < count; ++i)
-                l.Data[i] = va_arg(args, T);
-            va_end(args);
-            return l;
+            uint64_t origLen = Len;
+            Len += narray_cap(arr);
+            
+            for(int i = 0; i < narray_cap(arr); ++i)
+                Data[origLen + i] = *arr[i];
+            
+            return {};
         }
         
-        #ifndef NSTD_INIT_VALUES
-            #define NSTD_INIT_VALUES(alloc, ...) InitValues(alloc, MPT_ARGS_COUNT(__VA_ARGS__), __VA_ARGS__ )
-        #endif
+        template<typename... Ts>
+        inline List InitValues(nref Allocator& alloc, Ts... values)
+        {
+            List l = Init(alloc, sizeof...(values));
+            if(!l.Cap)
+                return l;
+            
+            l.AddValues(values...);
+            return l;
+        }
         
         inline T& At(uint64_t index)
         {
@@ -177,27 +187,27 @@ namespace Nstd
             }
         }
         
-        inline nresult<void> AddRange(View<T> view)
+        inline nresult<void> AddRange(nview<const T> v)
         {
-            ncheck_gte(UINT64_MAX - view.Len, Len);
-            ReserveAhead(Len + view.Len).ntry();
-            for(uint64_t i = 0; i < view.Len; ++i)
-                Data[Len++] = view.Data[i];
+            ncheck_gte(UINT64_MAX - v.len, Len);
+            ReserveAhead(Len + v.len).ntry();
+            for(uint64_t i = 0; i < v.len; ++i)
+                Data[Len++] = v.data[i];
             return {};
         }
         
-        inline nresult<void> InsertRange(uint64_t index, View<T> view)
+        inline nresult<void> InsertRange(uint64_t index, nview<const T> v)
         {
-            if(!view.Len || !view.Data)
+            if(!v)
                 return {};
             
             ncheck_lte(index, Len);
-            ncheck_gte(UINT64_MAX - view.Len, Len);
-            Reserve(Len + view.Len).ntry();
+            ncheck_gte(UINT64_MAX - v.len, Len);
+            Reserve(Len + v.len).ntry();
             if(index != Len)
-                memmove(&Data[index + view.Len], &Data[index], sizeof(T) * (Len - index));
-            memcpy(&Data[index], view.Data, sizeof(T) * view.Len);
-            Len += view.Len;
+                memmove(&Data[index + v.len], &Data[index], sizeof(T) * (Len - index));
+            memcpy(&Data[index], v.data, sizeof(T) * v.len);
+            Len += v.len;
             return {};
         }
         
@@ -209,6 +219,16 @@ namespace Nstd
                 memmove(&Data[index], &Data[index + len], sizeof(T) * (Len - index - len));
             Len -= len;
             return {};
+        }
+        
+        inline nview<T> ToView()
+        {
+            return nview<T> { Data, Len };
+        }
+        
+        inline nview<const T> ToView() const
+        {
+            return nview<const T> { Data, Len };
         }
         
         inline nresult<void> Free()

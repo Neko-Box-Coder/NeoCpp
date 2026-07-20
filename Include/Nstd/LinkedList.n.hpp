@@ -38,6 +38,77 @@ namespace Nstd
             return retList;
         }
         
+        template<typename... Ts>
+        inline nresult<ListNode<T>*> AppendValues(nref ListNode<T>* node, Ts... values)
+        {
+            ncheck_true(Alloc);
+            
+            T* arr[] = { &values... };
+            ListNode<T>* newNodes = Alloc->Malloc<ListNode<T>>(narray_cap(arr));
+            ncheck_true(newNodes);
+            for(int i = 0; i < narray_cap(arr); ++i)
+            {
+                ListNode<T>* Next;
+                ListNode<T>* Prev;
+                T Value;
+                bool Batched;
+                
+                if(i == 0 && i == narray_cap(arr) - 1)
+                    newNodes[i] = { node->Next, node, *arr[i], false };
+                else if(i == 0)
+                    newNodes[i] = { &newNodes[i + 1], node, *arr[i], false };
+                else if(i == narray_cap(arr) - 1)
+                    newNodes[i] = { node->Next, &newNodes[i - 1], *arr[i], true };
+                else
+                    newNodes[i] = { &newNodes[i + 1], &newNodes[i - 1], *arr[i], true };
+            }
+            
+            if(node->Next)
+                node->Next->Prev = &newNodes[narray_cap(arr) - 1];
+            node->Next = &newNodes[0];
+            Len += narray_cap(arr);
+            return &newNodes[narray_cap(arr) - 1];
+        }
+        
+        template<typename... Ts>
+        inline nresult<ListNode<T>*> PrependValues(nref ListNode<T>* node, Ts... values)
+        {
+            ncheck_true(Alloc);
+            
+            T* arr[] = { &values... };
+            ListNode<T>* newNodes = Alloc->Malloc<ListNode<T>>(narray_cap(arr));
+            ncheck_true(newNodes);
+            for(int i = 0; i < narray_cap(arr); ++i)
+            {
+                ListNode<T>* Next;
+                ListNode<T>* Prev;
+                T Value;
+                bool Batched;
+                
+                if(i == 0 && i == narray_cap(arr) - 1)
+                    newNodes[i] = { node, node->Prev, *arr[i], false };
+                else if(i == 0)
+                    newNodes[i] = { &newNodes[i + 1], node->Prev, *arr[i], false };
+                else if(i == narray_cap(arr) - 1)
+                    newNodes[i] = { node, &newNodes[i - 1], *arr[i], true };
+                else
+                    newNodes[i] = { &newNodes[i + 1], &newNodes[i - 1], *arr[i], true };
+            }
+            
+            if(node->Prev)
+                node->Prev->Next = &newNodes[0];
+            node->Prev = &newNodes[narray_cap(arr) - 1];
+            Len += narray_cap(arr);
+            return &newNodes[0];
+        }
+        
+        template<typename... Ts>
+        inline LinkedList InitValues(nref Allocator& alloc, Ts... values)
+        {
+            LinkedList l = Init(alloc);
+            l.AppendValues(l.Tail, values...);
+            return l;
+        }
         
         inline nresult<ListNode<T>*> Append(nref ListNode<T>* node, T val)
         {
@@ -156,96 +227,74 @@ namespace Nstd
             }
         }
         
-        inline LinkedList InitValues(nref Allocator& alloc, uint8_t count,  ...)
-        {
-            LinkedList<T> l = Init(alloc, count);
-            
-            va_list args;
-            va_start(args, count);
-            for (int i = 0; i < count; ++i)
-                l.Append(l.Tail, va_arg(args, T));
-            va_end(args);
-            return l;
-        }
-        
-        #ifndef NSTD_INIT_VALUES
-            #define NSTD_INIT_VALUES(alloc, ...) InitValues(alloc, MPT_ARGS_COUNT(__VA_ARGS__), __VA_ARGS__ )
-        #endif
-        
-        
         inline nresult<void> Reserve(uint64_t size)
         {
+            ncheck_true(Alloc);
             Alloc->Reserve<LinkedList<T>>(size);
             return {};
         }
         
-        inline nresult<ListNode<T>*> AppendRange(nref ListNode<T>* node, View<T> view)
+        inline nresult<ListNode<T>*> AppendRange(nref ListNode<T>* node, nview<const T> v)
         {
-            nuse_error_defer();
             ncheck_true(Alloc);
-            if(!view.Len)
+            if(!v)
                 return {};
             
-            ListNode<T>* newNodes = Alloc->Malloc<ListNode<T>>(view.Len);
+            ListNode<T>* newNodes = Alloc->Malloc<ListNode<T>>(v.len);
             ncheck_true(newNodes);
-            nerror_defer { Alloc->Free(newNodes); };
-            
-            for(int i = 0; i < view.Len; ++i)
+            for(int i = 0; i < v.len; ++i)
             {
                 ListNode<T>* Next;
                 ListNode<T>* Prev;
                 T Value;
                 bool Batched;
                 
-                if(i == 0 && i == view.Len)
-                    newNodes[i] = { node->Next, node, view.Data[i], false };
+                if(i == 0 && i == v.len - 1)
+                    newNodes[i] = { node->Next, node, v.data[i], false };
                 else if(i == 0)
-                    newNodes[i] = { &newNodes[i + 1], node, view.Data[i], false };
-                else if(i == view.Len)
-                    newNodes[i] = { node->Next, &newNodes[i - 1], view.Data[i], true };
+                    newNodes[i] = { &newNodes[i + 1], node, v.data[i], false };
+                else if(i == v.len - 1)
+                    newNodes[i] = { node->Next, &newNodes[i - 1], v.data[i], true };
                 else
-                    newNodes[i] = { &newNodes[i + 1], &newNodes[i - 1], view.Data[i], true };
+                    newNodes[i] = { &newNodes[i + 1], &newNodes[i - 1], v.data[i], true };
             }
             
             if(node->Next)
-                node->Next->Prev = &newNodes[view.Len - 1];
+                node->Next->Prev = &newNodes[v.len - 1];
             node->Next = &newNodes[0];
-            Len += view.Len;
-            return &newNodes[view.Len - 1];
+            Len += v.len;
+            return &newNodes[v.len - 1];
         }
         
-        inline nresult<ListNode<T>*> PrependRange(nref ListNode<T>* node, View<T> view)
+        inline nresult<ListNode<T>*> PrependRange(nref ListNode<T>* node, nview<const T> v)
         {
-            nuse_error_defer();
             ncheck_true(Alloc);
-            if(!view.Len)
+            if(!v)
                 return {};
             
-            ListNode<T>* newNodes = Alloc->Malloc<ListNode<T>>(view.Len);
+            ListNode<T>* newNodes = Alloc->Malloc<ListNode<T>>(v.len);
             ncheck_true(newNodes);
-            nerror_defer { Alloc->Free(newNodes); };
-            
-            for(int i = 0; i < view.Len; ++i)
+            for(int i = 0; i < v.len; ++i)
             {
                 ListNode<T>* Next;
                 ListNode<T>* Prev;
                 T Value;
                 bool Batched;
                 
-                if(i == 0 && i == view.Len)
-                    newNodes[i] = { node, node->Prev, view.Data[i], false };
+                if(i == 0 && i == v.len - 1)
+                    newNodes[i] = { node, node->Prev, v.data[i], false };
                 else if(i == 0)
-                    newNodes[i] = { &newNodes[i + 1], node->Prev, view.Data[i], false };
-                else if(i == view.Len)
-                    newNodes[i] = { node, &newNodes[i - 1], view.Data[i], true };
+                    newNodes[i] = { &newNodes[i + 1], node->Prev, v.data[i], false };
+                else if(i == v.len - 1)
+                    newNodes[i] = { node, &newNodes[i - 1], v.data[i], true };
                 else
-                    newNodes[i] = { &newNodes[i + 1], &newNodes[i - 1], view.Data[i], true };
+                    newNodes[i] = { &newNodes[i + 1], &newNodes[i - 1], v.data[i], true };
             }
             
             if(node->Prev)
                 node->Prev->Next = &newNodes[0];
-            node->Prev = &newNodes[view.Len - 1];
-            Len += view.Len;
+            node->Prev = &newNodes[v.len - 1];
+            Len += v.len;
             return &newNodes[0];
         }
         
@@ -268,7 +317,7 @@ namespace Nstd
                 vals[curIdx++] = curNode->Value;
             }
             
-            (void) AppendRange(nodeToInsertAfter, View<T> { vals, other.Len }).ntry();
+            (void) AppendRange(nodeToInsertAfter, nview<const T> { vals, other.Len }).ntry();
             return {};
         }
         
@@ -306,7 +355,7 @@ namespace Nstd
                 curNode = curNode->Next;
             }
             
-            (void) AppendRange(nodeToInsertAfter, View<T> { vals, curIdx }).ntry();
+            (void) AppendRange(nodeToInsertAfter, nview<const T> { vals, curIdx }).ntry();
             return {};
         }
         
