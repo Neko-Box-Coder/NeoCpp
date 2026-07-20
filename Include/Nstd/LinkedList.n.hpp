@@ -5,7 +5,6 @@
 
 #include "./Allocator.n.hpp"
 #include "./External/MacroPowerToys/ArgsCount.h"
-#include <stdint.h>
 #include <stdarg.h>
 
 namespace Nstd
@@ -25,7 +24,7 @@ namespace Nstd
         Allocator* Alloc;
         ListNode<T>* Head;
         ListNode<T>* Tail;
-        uint64_t Len;
+        uint64 Len;
         
         
         inline LinkedList Init(nref Allocator& alloc)
@@ -227,7 +226,7 @@ namespace Nstd
             }
         }
         
-        inline nresult<void> Reserve(uint64_t size)
+        inline nresult<void> Reserve(uint64 size)
         {
             ncheck_true(Alloc);
             Alloc->Reserve<LinkedList<T>>(size);
@@ -309,7 +308,7 @@ namespace Nstd
             ncheck_true(vals);
             ndefer { free(vals); };
             
-            uint64_t curIdx = 0;
+            uint64 curIdx = 0;
             ListNode<T>* curNode = other.Head;
             while(curNode)
             {
@@ -330,18 +329,18 @@ namespace Nstd
             ncheck_true(otherNodeBegin);
             ncheck_true(otherNodeEnd);
             
-            uint64_t cap = 64;
+            uint64 cap = 64;
             T* vals = Alloc->Malloc<T>(cap);
             ncheck_true(vals);
             ndefer { free(vals); };
             
-            uint64_t curIdx = 0;
+            uint64 curIdx = 0;
             ListNode<T>* curNode = otherNodeBegin;
             while(curNode != otherNodeEnd)
             {
                 if(curIdx >= cap)
                 {
-                    uint64_t newCap = cap * 2;
+                    uint64 newCap = cap * 2;
                     if(newCap < cap)
                         newCap = UINT64_MAX;
                     

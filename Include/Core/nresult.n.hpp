@@ -24,29 +24,29 @@ struct trace
 struct error_info
 {
     const char* message;
-    uint8_t msg_len;
-    uint8_t msg_cap;
+    uint8 msg_len;
+    uint8 msg_cap;
     trace* traces;
-    uint8_t traces_len;
-    uint8_t traces_cap;
+    uint8 traces_len;
+    uint8 traces_cap;
 
     inline void append_trace(trace t);
-    inline size_t string(char* mem, size_t mem_len);
+    inline usize string(char* mem, usize mem_len);
 };
 
-template<uint16_t MSG_CAP = 1024, uint16_t TRACE_CAP = 128, uint8_t ERROR_CAP = 8>
+template<uint16 MSG_CAP = 1024, uint16 TRACE_CAP = 128, uint8 ERROR_CAP = 8>
 struct error_buffer
 {
-    uint16_t message_index;
-    uint16_t trace_index;
-    uint8_t error_index;
+    uint16 message_index;
+    uint16 trace_index;
+    uint8 error_index;
     char message[MSG_CAP];
     trace traces[TRACE_CAP];
     error_info errors[ERROR_CAP];
     
-    static constexpr uint16_t msg_cap = MSG_CAP;
-    static constexpr uint16_t trace_cap = TRACE_CAP;
-    static constexpr uint8_t error_cap = ERROR_CAP;
+    static constexpr uint16 msg_cap = MSG_CAP;
+    static constexpr uint16 trace_cap = TRACE_CAP;
+    static constexpr uint8 error_cap = ERROR_CAP;
 };
 
 template<typename T>
@@ -230,7 +230,7 @@ Stack trace:
     #define NCPP_ERR_CB(msg, mlen, mcap, ts, tc, t)
 #endif
 
-#include <stdint.h>
+#include "./nstdint.n.hpp"
 #include <string.h>
 #include <assert.h>
 
@@ -277,11 +277,11 @@ namespace ncpp
     struct error_info
     {
         const char* message;
-        uint16_t msg_len;
-        uint16_t msg_cap;
+        uint16 msg_len;
+        uint16 msg_cap;
         trace* traces;
-        uint16_t traces_len;
-        uint16_t traces_cap;
+        uint16 traces_len;
+        uint16 traces_cap;
         
         inline void append_trace(trace t)
         {
@@ -290,12 +290,12 @@ namespace ncpp
             traces[traces_len++] = t;
         }
         
-        template<uint16_t TARGET_MSG_CAP>
+        template<uint16 TARGET_MSG_CAP>
         inline static error_info create(const char* msg, 
-                                        uint16_t mlen, 
-                                        uint16_t max_mcap,
+                                        uint16 mlen, 
+                                        uint16 max_mcap,
                                         trace* ts, 
-                                        uint16_t max_tc, 
+                                        uint16 max_tc, 
                                         trace t)
         {
             #if !defined(NDEBUG) && !NCPP_NO_DEBUG_BREAK
@@ -315,18 +315,18 @@ namespace ncpp
             return { msg, mlen, max_mcap, ts, 1, max_tc };
         }
         
-        inline size_t string(char* mem, size_t mem_len)
+        inline usize string(char* mem, usize mem_len)
         {
             if(!mem || !mem_len)
             {
-                size_t ret_len = snprintf_(NULL, 0, "Error: \n    %s\nStack trace:\n", message);
+                usize ret_len = snprintf_(NULL, 0, "Error: \n    %s\nStack trace:\n", message);
                 for(int i = 0; i < traces_len; ++i)
                     ret_len += snprintf_(NULL, 0, ntrace_fmt("    at ", traces[i], "\n"));
                 return ret_len;
             }
             else
             {
-                size_t wrote_len = snprintf_(mem, 
+                usize wrote_len = snprintf_(mem, 
                                             mem_len, 
                                             "Error: \n    %s\nStack trace:\n", 
                                             message);
@@ -349,7 +349,7 @@ namespace ncpp
             > \
             ( \
                 &NCPP_ERR_BUFFER.message[NCPP_ERR_BUFFER.message_index], \
-                (uint16_t)snprintf_(&NCPP_ERR_BUFFER.message[NCPP_ERR_BUFFER.message_index], \
+                (uint16)snprintf_(&NCPP_ERR_BUFFER.message[NCPP_ERR_BUFFER.message_index], \
                                     NCPP_ERR_BUFFER.msg_cap - NCPP_ERR_BUFFER.message_index, \
                                     __VA_ARGS__), \
                 NCPP_ERR_BUFFER.msg_cap - NCPP_ERR_BUFFER.message_index, \
@@ -359,21 +359,21 @@ namespace ncpp
             )
     };
     
-    template<uint16_t MSG_CAP = 1024, uint16_t TRACE_CAP = 128, uint8_t ERROR_CAP = 8>
+    template<uint16 MSG_CAP = 1024, uint16 TRACE_CAP = 128, uint8 ERROR_CAP = 8>
     struct error_buffer
     {
-        uint16_t message_index;
-        uint16_t trace_index;
-        uint8_t error_index;
+        uint16 message_index;
+        uint16 trace_index;
+        uint8 error_index;
         char message[MSG_CAP];
         trace traces[TRACE_CAP];
         error_info errors[ERROR_CAP];
         
-        static constexpr uint16_t msg_cap = MSG_CAP;
-        static constexpr uint16_t trace_cap = TRACE_CAP;
-        static constexpr uint8_t error_cap = ERROR_CAP;
+        static constexpr uint16 msg_cap = MSG_CAP;
+        static constexpr uint16 trace_cap = TRACE_CAP;
+        static constexpr uint8 error_cap = ERROR_CAP;
     };
-    
+
     namespace
     {
         #if INTERN_NCPP_USE_DEFAULT_ERR_BUFFER
@@ -381,15 +381,15 @@ namespace ncpp
         #endif
         thread_local error_info* global_error_info = NULL;
     }
-    
+
     template<typename ERROR_BUFFER_T>
     inline error_info* store_error_info(nref ERROR_BUFFER_T& buf, error_info i)
     {
         buf.errors[buf.error_index] = i;
         error_info* ret_i = &buf.errors[buf.error_index];
-        
-        uint16_t target_msg_cap = buf.msg_cap / buf.error_cap;
-        uint16_t target_msg_idx = buf.message_index + i.msg_cap;
+
+        uint16 target_msg_cap = buf.msg_cap / buf.error_cap;
+        uint16 target_msg_idx = buf.message_index + i.msg_cap;
         target_msg_idx = (target_msg_idx + (target_msg_cap - 1)) / target_msg_cap * target_msg_cap;
         if(target_msg_idx > buf.msg_cap)
             target_msg_idx = buf.message_index + i.msg_cap;

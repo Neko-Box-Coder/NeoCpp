@@ -4,7 +4,7 @@
 #include "./narray.n.hpp"
 #include "./ntype.n.hpp"
 
-#include <stdint.h>
+#include "./nstdint.n.hpp"
 #include <string.h>
 
 namespace ncpp
@@ -13,10 +13,10 @@ namespace ncpp
     struct nview
     {
         T* data;
-        uint64_t len;
+        uint64 len;
         
         inline nview() = default;
-        inline nview(T* d, uint64_t l) { data = d; len = l; }
+        inline nview(T* d, uint64 l) { data = d; len = l; }
         
         
         //template<typename U = T, nenable_if(nis_same(U, const U))>

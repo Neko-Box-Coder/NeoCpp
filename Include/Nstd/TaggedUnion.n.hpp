@@ -5,7 +5,7 @@
 Usage:
 ```c++
 {
-    Nstd::TaggedUnion<int, signed char, uint8_t> t = t.Init<uint8_t>(9);
+    Nstd::TaggedUnion<int, signed char, uint8> t = t.Init<uint8>(9);
     switch(t.Index)
     {
         case ntyepof(t)::GetIndex<int>():
@@ -14,24 +14,24 @@ Usage:
         case ntyepof(t)::GetIndex<signed char>():
             printf("char\n");
             break;
-        case ntyepof(t)::GetIndex<uint8_t>():
-            printf("uint8_t\n");
+        case ntyepof(t)::GetIndex<uint8>():
+            printf("uint8\n");
             break;
     }
     
-    t.Get<uint8_t>() = 10;
-    printf("t: %d\n", t.Get<uint8_t>());
+    t.Get<uint8>() = 10;
+    printf("t: %d\n", t.Get<uint8>());
     printf("t.Is<int>(): %s\n", (t.Is<int>() ? "true" : "false"));
-    printf("t.Is<uint8_t>(): %s\n", (t.Is<uint8_t>() ? "true" : "false"));
+    printf("t.Is<uint8>(): %s\n", (t.Is<uint8>() ? "true" : "false"));
 }
 ```
 
 Output:
 ```
-uint8_t
+uint8
 t: 10
 t.Is<int>(): false
-t.Is<uint8_t>(): true
+t.Is<uint8>(): true
 ```
 */
 
@@ -55,7 +55,7 @@ namespace Nstd
             T8 TT8;
         } Ts;
         
-        uint8_t Index;
+        uint8 Index;
     
         template<typename T, nenable_if(nis_same(T, T1))>
         static TaggedUnion Init(const T& val)
@@ -67,7 +67,7 @@ namespace Nstd
         }
         
         template<typename T, nenable_if(nis_same(T, T1))>
-        static constexpr uint8_t GetIndex()
+        static constexpr uint8 GetIndex()
         {
             return 1;
         }
@@ -101,7 +101,7 @@ namespace Nstd
             \
             template<   typename T, \
                         nenable_if(INTERN_MATCHED(currentT) && INTERN_DEFINED(previousT, currentT, i))> \
-            static constexpr uint8_t GetIndex() \
+            static constexpr uint8 GetIndex() \
             { \
                 return i; \
             } \

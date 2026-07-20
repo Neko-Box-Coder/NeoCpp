@@ -5,12 +5,12 @@
 Usage:
 ```c++
 {
-    Nstd::Allocator a = a.Init<int64_t, Nstd::HeapAllocator>(32);   //Reserve 32 int64_t
+    Nstd::Allocator a = a.Init<int64, Nstd::HeapAllocator>(32);   //Reserve 32 int64
     ndefer { a.Destroy(); };
-    int64_t* ints = a.Malloc<int64_t>(16);                          //Allocate 16 int64_t
+    int64* ints = a.Malloc<int64>(16);                          //Allocate 16 int64
     (void)ints;
     //...
-    ints = a.Realloc<int64_t>(ints, 64);                            //Expands to 64 int64_t
+    ints = a.Realloc<int64>(ints, 64);                            //Expands to 64 int64
     char* chars = a.Malloc<char>(16);
     (void)chars;
     a.Free(ints);
@@ -31,23 +31,23 @@ namespace Nstd
     struct HeapAllocator
     {
         void* Allocations;
-        uint64_t Size;
-        uint64_t Cap;
+        uint64 Size;
+        uint64 Cap;
         
         template<typename T>
-        static inline HeapAllocator Init(uint64_t reserveSize)
+        static inline HeapAllocator Init(uint64 reserveSize)
         {
             return {};
         }
         
         template<typename T>
-        static inline void Reserve(uint64_t reserveSize)
+        static inline void Reserve(uint64 reserveSize)
         {
             return;
         }
         
         template<typename T>
-        inline T* Malloc(uint64_t size)
+        inline T* Malloc(uint64 size)
         {
             return (T*)malloc(sizeof(T) * size);
         }
@@ -59,13 +59,13 @@ namespace Nstd
         }
         
         template<typename T>
-        inline T* Realloc(T* ptr, uint64_t size)
+        inline T* Realloc(T* ptr, uint64 size)
         {
             return (T*)realloc(ptr, sizeof(T) * size);
         }
         
         template<typename T>
-        inline T* Calloc(uint64_t size)
+        inline T* Calloc(uint64 size)
         {
             return (T*)calloc(size, sizeof(T));
         }
@@ -88,7 +88,7 @@ namespace Nstd
         TaggedUnion<HeapAllocator, ArenaAllocator, CustomAllocator, Allocator*> Impl;
         
         template<typename T, typename AllocType>
-        static inline Allocator Init(uint64_t reserveSize) ndefer_with(Destroy(ret_val))
+        static inline Allocator Init(uint64 reserveSize) ndefer_with(Destroy(ret_val))
         {
             Allocator a = {};
             a.Impl = a.Impl.template Init<AllocType>( AllocType::template Init<T>(reserveSize) );
@@ -97,7 +97,7 @@ namespace Nstd
         
         template<typename T>
         static inline Allocator InitProxy(  Allocator* alloc, 
-                                            uint64_t reserveSize) ndefer_with(Destroy(ret_val))
+                                            uint64 reserveSize) ndefer_with(Destroy(ret_val))
         {
             Allocator a = {};
             a.Impl = a.Impl.template Init<Allocator*>(alloc);
@@ -121,13 +121,13 @@ namespace Nstd
             } while(0)
         
         template<typename T>
-        inline void Reserve(uint64_t size)
+        inline void Reserve(uint64 size)
         {
             INTERN_NSTD_DISPATCH(Reserve<T>(size), return);
         }
         
         template<typename T>
-        inline T* Malloc(uint64_t size)
+        inline T* Malloc(uint64 size)
         {
             INTERN_NSTD_DISPATCH(Malloc<T>(size), return NULL);
         }
@@ -139,13 +139,13 @@ namespace Nstd
         }
         
         template<typename T>
-        inline T* Realloc(T* ptr, uint64_t size)
+        inline T* Realloc(T* ptr, uint64 size)
         {
             INTERN_NSTD_DISPATCH(Realloc<T>(ptr, size), return NULL);
         }
         
         template<typename T>
-        inline T* Calloc(uint64_t size)
+        inline T* Calloc(uint64 size)
         {
             INTERN_NSTD_DISPATCH(Calloc<T>(size), return NULL);
         }

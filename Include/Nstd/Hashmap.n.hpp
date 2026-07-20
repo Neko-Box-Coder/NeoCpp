@@ -118,7 +118,7 @@ namespace Nstd
             return {};
         }
         
-        inline nresult<void> Reserve(uint64_t size)
+        inline nresult<void> Reserve(uint64 size)
         {
             ncheck_true(Alloc);
             Alloc->Reserve<HashNode<T>>(size);
@@ -152,7 +152,7 @@ namespace Nstd
             return {};
         }
         
-        inline nresult<size_t> Len()
+        inline nresult<usize> Len()
         {
             ncheck_true(Alloc);
             return HASH_COUNT(Nodes);

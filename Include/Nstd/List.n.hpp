@@ -41,7 +41,6 @@ list.At(2): 3
 #include "./Allocator.n.hpp"
 #include "./External/MacroPowerToys/ArgsCount.h"
 
-#include <stdint.h>
 #include <stdarg.h>
 
 namespace Nstd
@@ -52,10 +51,10 @@ namespace Nstd
         Allocator* Alloc;
         T Dummy;
         T* Data;
-        uint64_t Len;
-        uint64_t Cap;
+        uint64 Len;
+        uint64 Cap;
         
-        inline List Init(nref Allocator& alloc, uint64_t reserveSize)
+        inline List Init(nref Allocator& alloc, uint64 reserveSize)
         {
             List retList;
             retList.Alloc = &alloc;
@@ -73,7 +72,7 @@ namespace Nstd
             T* arr[] = { &values... };
             ReserveAhead(Len + narray_cap(arr)).ntry();
             
-            uint64_t origLen = Len;
+            uint64 origLen = Len;
             Len += narray_cap(arr);
             
             for(int i = 0; i < narray_cap(arr); ++i)
@@ -93,7 +92,7 @@ namespace Nstd
             return l;
         }
         
-        inline T& At(uint64_t index)
+        inline T& At(uint64 index)
         {
             if(index >= Len)
                 return Dummy;
@@ -101,7 +100,7 @@ namespace Nstd
                 return Data[index];
         }
         
-        inline const T& At(uint64_t index) const
+        inline const T& At(uint64 index) const
         {
             if(index >= Len)
                 return Dummy;
@@ -109,7 +108,7 @@ namespace Nstd
                 return Data[index];
         }
         
-        inline nresult<void> Reserve(uint64_t size)
+        inline nresult<void> Reserve(uint64 size)
         {
             ncheck_true(Alloc);
             if(size <= Cap)
@@ -126,9 +125,9 @@ namespace Nstd
             return {};
         }
         
-        inline nresult<void> ReserveAhead(uint64_t size)
+        inline nresult<void> ReserveAhead(uint64 size)
         {
-            uint64_t reserveLen;
+            uint64 reserveLen;
             if(UINT64_MAX / 2 < Cap)
                 reserveLen = UINT64_MAX;
             else
@@ -139,7 +138,7 @@ namespace Nstd
             return {};
         }
         
-        inline nresult<void> Resize(uint64_t size)
+        inline nresult<void> Resize(uint64 size)
         {
             if(size <= Len)
                 Len = size;
@@ -158,7 +157,7 @@ namespace Nstd
             return {};
         }
         
-        inline nresult<void> Insert(uint64_t index, T t)
+        inline nresult<void> Insert(uint64 index, T t)
         {
             ncheck_lte(index, Len);
             ReserveAhead(Len + 1).ntry();
@@ -171,7 +170,7 @@ namespace Nstd
             return {};
         }
         
-        inline nresult<void> Remove(uint64_t index)
+        inline nresult<void> Remove(uint64 index)
         {
             ncheck_lt(index, Len);
             if(index != Len - 1)
@@ -191,12 +190,12 @@ namespace Nstd
         {
             ncheck_gte(UINT64_MAX - v.len, Len);
             ReserveAhead(Len + v.len).ntry();
-            for(uint64_t i = 0; i < v.len; ++i)
+            for(uint64 i = 0; i < v.len; ++i)
                 Data[Len++] = v.data[i];
             return {};
         }
         
-        inline nresult<void> InsertRange(uint64_t index, nview<const T> v)
+        inline nresult<void> InsertRange(uint64 index, nview<const T> v)
         {
             if(!v)
                 return {};
@@ -211,7 +210,7 @@ namespace Nstd
             return {};
         }
         
-        inline nresult<void> RemoveRange(uint64_t index, uint64_t len)
+        inline nresult<void> RemoveRange(uint64 index, uint64 len)
         {
             ncheck_gte(UINT64_MAX - len, index);
             ncheck_lte(index + len, Len);

@@ -67,7 +67,7 @@ nresult<int> Main(int argc, char** argv)
 {
     //Nstd/TaggedUnion.n.hpp
     {
-        Nstd::TaggedUnion<int, signed char, uint8_t> t = t.Init<uint8_t>(9);
+        Nstd::TaggedUnion<int, signed char, uint8> t = t.Init<uint8>(9);
         switch(t.Index)
         {
             case ntypeof(t)::GetIndex<int>():
@@ -76,15 +76,15 @@ nresult<int> Main(int argc, char** argv)
             case ntypeof(t)::GetIndex<signed char>():
                 printf("char\n");
                 break;
-            case ntypeof(t)::GetIndex<uint8_t>():
-                printf("uint8_t\n");
+            case ntypeof(t)::GetIndex<uint8>():
+                printf("uint8\n");
                 break;
         }
         
-        t.Get<uint8_t>() = 10;
-        printf("t: %d\n", t.Get<uint8_t>());
+        t.Get<uint8>() = 10;
+        printf("t: %d\n", t.Get<uint8>());
         printf("t.Is<int>(): %s\n", (t.Is<int>() ? "true" : "false"));
-        printf("t.Is<uint8_t>(): %s\n", (t.Is<uint8_t>() ? "true" : "false"));
+        printf("t.Is<uint8>(): %s\n", (t.Is<uint8>() ? "true" : "false"));
     }
     
     //Nstd/Allocator.n.hpp
@@ -263,7 +263,7 @@ nresult<int> Main(int argc, char** argv)
         s.RemoveRange(9, 5).ntry();
         printf("String: \"%s\" with len %lu\n", s.Data(), s.Len());
         
-        uint64_t f = s.FindString("Test3");
+        uint64 f = s.FindString("Test3");
         printf("Test3 is at index %lu\n", f);
         
         f = s.FindString("Test5");
