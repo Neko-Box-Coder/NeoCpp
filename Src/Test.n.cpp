@@ -115,7 +115,7 @@ n_result<int> Main(int argc, char** argv)
     //Core/n_array.n.hpp
     {
         int a[] = { 1, 2, 3 };
-        int b[] = { };
+        int b[1] = { };
         char c[] = "Hello";
         printf("n_array_cap(a): %zu\n", n_array_cap(a));
         printf("n_array_cap(b): %zu\n", n_array_cap(b));
