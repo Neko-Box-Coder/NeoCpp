@@ -65,7 +65,7 @@ n_result<int> TestCheckFmt(int v)
     return v + 5;
 }
 
-n_result<int> Main(int argc, char** argv)
+n_result<int> Main(int, char**)
 {
     //Nstd/TaggedUnion.n.hpp
     {

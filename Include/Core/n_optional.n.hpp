@@ -35,7 +35,7 @@ namespace ncpp
         bool exists;
         
         inline n_optional() = default;
-        inline n_optional(optional_nothing n) { value = {}; exists = false; }
+        inline n_optional(optional_nothing) { value = {}; exists = false; }
         inline n_optional(T val) { value = val; exists = true; }
         
         inline operator bool() const { return exists; }
