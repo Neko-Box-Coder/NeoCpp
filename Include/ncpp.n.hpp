@@ -9,6 +9,7 @@
 #include "./Core/n_type.n.hpp"
 #include "./Core/n_result.n.hpp"
 #include "./Core/n_view.n.hpp"
+#include "./Core/n_assert.n.hpp"
 
 using namespace ncpp;
 

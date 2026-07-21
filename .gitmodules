@@ -1,9 +1,6 @@
 [submodule "Defer.hpp"]
 	path = Include/Core/External/Defer.hpp
 	url = https://github.com/Neko-Box-Coder/Defer.hpp.git
-[submodule "printf"]
-	path = Include/Core/External/printf
-	url = https://github.com/mpaland/printf.git
 [submodule "debugbreak"]
 	path = Include/Core/External/debugbreak
 	url = https://github.com/Neko-Box-Coder/debugbreak.git

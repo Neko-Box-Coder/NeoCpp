@@ -1,3 +1,5 @@
+//NOTE: Commit: d3b984684bb8
+
 ///////////////////////////////////////////////////////////////////////////////
 // \author (c) Marco Paland (info@paland.com)
 //             2014-2019, PALANDesign Hannover, Germany

@@ -207,7 +207,7 @@ Stack trace:
 
 #include "./n_type.n.hpp"
 #include "./n_defer.n.hpp"
-#include "./printf.hpp"
+#include "./External/printf.hpp"
 
 #if NCCP_NO_PATH
     #define NCPP_PATH "(Private File)"
