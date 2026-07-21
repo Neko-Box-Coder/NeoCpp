@@ -163,7 +163,7 @@ namespace Nstd
             return Nodes;
         }
         
-        inline HashNode<T>* Next(n_in_ref HashNode<T>* node)
+        inline HashNode<T>* Next(n_in HashNode<T>* node)
         {
             if(!node)
                 return NULL;
