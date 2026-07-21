@@ -229,7 +229,7 @@ namespace Nstd
         inline n_result<void> Reserve(uint64 size)
         {
             n_check_true(Alloc);
-            Alloc->Reserve<LinkedList<T>>(size);
+            Alloc->ReserveAhead<LinkedList<T>>(size);
             return {};
         }
         

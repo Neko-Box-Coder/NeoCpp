@@ -121,7 +121,7 @@ namespace Nstd
         inline n_result<void> Reserve(uint64 size)
         {
             n_check_true(Alloc);
-            Alloc->Reserve<HashNode<T>>(size);
+            Alloc->ReserveAhead<HashNode<T>>(size);
             return {};
         }
         

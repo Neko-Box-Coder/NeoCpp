@@ -25,14 +25,40 @@ Usage:
 
 #include <string.h>
 #include <stdlib.h>
+#include <stddef.h>
 
 namespace Nstd
 {
-    struct HeapAllocator
+    /*
+    struct Backtrace
     {
         void* Allocations;
-        uint64 Size;
-        uint64 Cap;
+    }
+    */
+    //template<usize BLOCK_SIZE = 32>
+    
+    
+    struct HeapAllocator
+    {
+        struct Intern_Bucket
+        {
+            void** Data;
+            uint32 MaxLen;
+            uint32 Cap;
+            uint32 LastFree;
+        };
+        
+        Intern_Bucket* Buckets;
+        uint32 Len;
+        uint32 LastFree;
+        
+        static inline usize MinOverhead()
+        {
+            return  alignof(max_align_t) >= sizeof(uint32) ? 
+                    alignof(max_align_t) : 
+                    alignof(max_align_t) * ((sizeof(uint32) + alignof(max_align_t) - 1) / 
+                                            alignof(max_align_t));
+        }
         
         template<typename T>
         static inline HeapAllocator Init(uint64 reserveSize)
@@ -41,7 +67,7 @@ namespace Nstd
         }
         
         template<typename T>
-        static inline void Reserve(uint64 reserveSize)
+        static inline void ReserveAhead(uint64 reserveSize)
         {
             return;
         }
@@ -49,30 +75,153 @@ namespace Nstd
         template<typename T>
         inline T* Malloc(uint64 size)
         {
-            return (T*)malloc(sizeof(T) * size);
+            uint32 chosen = Len;
+            uint32 slot = 0;
+            if(Buckets)
+            {
+                //Use free one
+                if(LastFree != Len)
+                {
+                    chosen = LastFree;
+                    if(Buckets[chosen].LastFree != Buckets[chosen].MaxLen)
+                    {
+                        slot = Buckets[chosen].LastFree;
+                        Buckets[chosen].LastFree = Buckets[chosen].MaxLen;
+                    }
+                    else
+                        slot = Buckets[chosen].MaxLen++;
+                }
+                //No free
+                else
+                {
+                    //Find any buckets that are free
+                    for(uint32 i = 0; i < Len; ++i)
+                    {
+                        if(Buckets[i].LastFree != Buckets[i].MaxLen)
+                        {
+                            chosen = i;
+                            slot = Buckets[i].LastFree;
+                            break;
+                        }
+                        else if(Buckets[i].MaxLen < Buckets[i].Cap)
+                        {
+                            chosen = i;
+                            slot = Buckets[i].MaxLen++;
+                            break;
+                        }
+                    }
+                    
+                    //Create new one if no space
+                    if(chosen == Len)
+                    {
+                        {
+                            void* t = realloc(Buckets, (Len + 1) * sizeof(Intern_Bucket));
+                            if(!t)
+                                return NULL;
+                            Buckets = (Intern_Bucket*)t;
+                        }
+                        
+                        Buckets[Len].Data = (void**)calloc(Buckets[Len - 1].Cap * 2, sizeof(void*));
+                        Buckets[Len].MaxLen = 1;
+                        Buckets[Len].Cap = Buckets[Len - 1].Cap * 2;
+                        Buckets[Len++].LastFree = 1;
+                        slot = 0;
+                        chosen = Len - 1;
+                    }
+                }
+            } //if(Buckets)
+            else
+            {
+                //First initialization
+                Buckets = (Intern_Bucket*)malloc(sizeof(Intern_Bucket));
+                memset(Buckets, 0, sizeof(Intern_Bucket));
+                Len = 1;
+                LastFree = 0;
+                
+                Buckets[0].Data = (void**)calloc(64, sizeof(void*));
+                Buckets[0].MaxLen = 1;
+                Buckets[0].Cap = 64;
+                Buckets[0].LastFree = 1;
+                chosen = 0;
+                slot = 0;
+            }
+            
+            n_assert(chosen != Len);
+            
+            Intern_Bucket& bucket = Buckets[chosen];
+            void* retP = NULL;
+            n_assert(bucket.Data[slot] == NULL);
+            bucket.Data[slot] = malloc(sizeof(T) * size + MinOverhead());
+            if(!bucket.Data[slot])
+                return NULL;
+            memcpy(bucket.Data[slot], &chosen, sizeof(chosen));
+            retP = (char*)bucket.Data[slot] + MinOverhead();
+            bucket.LastFree = bucket.MaxLen;
+            
+            if(bucket.MaxLen >= bucket.Cap)
+                LastFree = Len;
+            else
+                LastFree = chosen;
+            
+            return (T*)retP;
         }
         
         template<typename T>
         inline void Free(T* ptr)
         {
-            free(ptr);
+            if(!ptr)
+                return;
+            
+            void* p = (char*)ptr - MinOverhead();
+            
+            uint32 chosen = 0;
+            memcpy(&chosen, p, sizeof(chosen));
+            n_assert(chosen < Len);
+            
+            Intern_Bucket& bucket = Buckets[chosen];
+            uint32 f = bucket.MaxLen;
+            for(uint32 i = 0; i < bucket.MaxLen; ++i)
+            {
+                if(bucket.Data[i] == p)
+                {
+                    f = i;
+                    break;
+                }
+            }
+            
+            n_assert(f != bucket.MaxLen);
+            free(bucket.Data[f]);
+            bucket.Data[f] = NULL;
+            
+            if(f == bucket.MaxLen)
+            {
+                --bucket.MaxLen;
+                bucket.LastFree = bucket.MaxLen;
+            }
+            else
+                bucket.LastFree = f;
+            
+            LastFree = chosen;
         }
         
         template<typename T>
         inline T* Realloc(T* ptr, uint64 size)
         {
-            return (T*)realloc(ptr, sizeof(T) * size);
+            void* p = realloc((char*)ptr - MinOverhead(), sizeof(T) * size + MinOverhead());
+            if(!p)
+                return NULL;
+            return (T*)((char*)p + MinOverhead());
         }
         
-        template<typename T>
-        inline T* Calloc(uint64 size)
+        inline void FreeAll()
         {
-            return (T*)calloc(size, sizeof(T));
+            //TODO
         }
         
-        inline void FreeAll() {}
-        
-        inline void Destroy() {}
+        inline void Destroy() 
+        {
+            //TODO
+        }
     };
     
     struct ArenaAllocator
@@ -121,9 +270,9 @@ namespace Nstd
             } while(0)
         
         template<typename T>
-        inline void Reserve(uint64 size)
+        inline void ReserveAhead(uint64 size)
         {
-            INTERN_NSTD_DISPATCH(Reserve<T>(size), return);
+            INTERN_NSTD_DISPATCH(ReserveAhead<T>(size), return);
         }
         
         template<typename T>
@@ -147,7 +296,11 @@ namespace Nstd
         template<typename T>
         inline T* Calloc(uint64 size)
         {
-            INTERN_NSTD_DISPATCH(Calloc<T>(size), return NULL);
+            T* t = Malloc<T>(size);
+            if(!t)
+                return t;
+            memset(t, 0, sizeof(T) * size);
+            return t;
         }
         
         inline void FreeAll() 
