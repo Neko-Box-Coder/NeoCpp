@@ -1,5 +1,5 @@
-#ifndef NCPP_NMOVE_N_HPP
-#define NCPP_NMOVE_N_HPP
+#ifndef NCPP_N_MOVE_N_HPP
+#define NCPP_N_MOVE_N_HPP
 
 /*
 Usage:
@@ -22,7 +22,7 @@ a: 0, b: 3
 namespace ncpp
 {
     template<typename T>
-    inline T nmove(nref T& src)
+    inline T n_move(n_ref T& src)
     {
         T tmp = src;
         memset(&src, 0, sizeof(T));

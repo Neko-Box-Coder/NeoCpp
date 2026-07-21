@@ -45,7 +45,7 @@ list.At(2): 3
 
 namespace Nstd
 {
-    template<typename T, nenable_if(nis_simple(T))>
+    template<typename T, n_enable_if(n_is_simple(T))>
     struct List
     {
         Allocator* Alloc;
@@ -54,7 +54,7 @@ namespace Nstd
         uint64 Len;
         uint64 Cap;
         
-        inline List Init(nref Allocator& alloc, uint64 reserveSize)
+        inline List Init(n_ref Allocator& alloc, uint64 reserveSize)
         {
             List retList;
             retList.Alloc = &alloc;
@@ -67,22 +67,22 @@ namespace Nstd
         
         
         template<typename... Ts>
-        inline nresult<void> AddValues(Ts... values)
+        inline n_result<void> AddValues(Ts... values)
         {
             T* arr[] = { &values... };
-            ReserveAhead(Len + narray_cap(arr)).ntry();
+            ReserveAhead(Len + n_array_cap(arr)).n_try();
             
             uint64 origLen = Len;
-            Len += narray_cap(arr);
+            Len += n_array_cap(arr);
             
-            for(int i = 0; i < narray_cap(arr); ++i)
+            for(int i = 0; i < n_array_cap(arr); ++i)
                 Data[origLen + i] = *arr[i];
             
             return {};
         }
         
         template<typename... Ts>
-        inline List InitValues(nref Allocator& alloc, Ts... values)
+        inline List InitValues(n_ref Allocator& alloc, Ts... values)
         {
             List l = Init(alloc, sizeof...(values));
             if(!l.Cap)
@@ -108,15 +108,15 @@ namespace Nstd
                 return Data[index];
         }
         
-        inline nresult<void> Reserve(uint64 size)
+        inline n_result<void> Reserve(uint64 size)
         {
-            ncheck_true(Alloc);
+            n_check_true(Alloc);
             if(size <= Cap)
                 return {};
             
             T* tmp = Alloc->Realloc(Data, size);
             if(!tmp)
-                return nerror_msg("%s", "Failed to realloc");
+                return n_error_msg("%s", "Failed to realloc");
             else
             {
                 Data = tmp;
@@ -125,7 +125,7 @@ namespace Nstd
             return {};
         }
         
-        inline nresult<void> ReserveAhead(uint64 size)
+        inline n_result<void> ReserveAhead(uint64 size)
         {
             uint64 reserveLen;
             if(UINT64_MAX / 2 < Cap)
@@ -134,33 +134,33 @@ namespace Nstd
                 reserveLen = Cap * 2;
             if(reserveLen < size)
                 reserveLen = size;
-            Reserve(reserveLen).ntry();
+            Reserve(reserveLen).n_try();
             return {};
         }
         
-        inline nresult<void> Resize(uint64 size)
+        inline n_result<void> Resize(uint64 size)
         {
             if(size <= Len)
                 Len = size;
             else
             {
-                Reserve(size).ntry();
+                Reserve(size).n_try();
                 Len = size;
             }
             return {};
         }
         
-        inline nresult<void> Add(T t)
+        inline n_result<void> Add(T t)
         {
-            ReserveAhead(Len + 1).ntry();
+            ReserveAhead(Len + 1).n_try();
             Data[Len++] = t;
             return {};
         }
         
-        inline nresult<void> Insert(uint64 index, T t)
+        inline n_result<void> Insert(uint64 index, T t)
         {
-            ncheck_lte(index, Len);
-            ReserveAhead(Len + 1).ntry();
+            n_check_lte(index, Len);
+            ReserveAhead(Len + 1).n_try();
             ++Len;
             
             if(index != Len)
@@ -170,9 +170,9 @@ namespace Nstd
             return {};
         }
         
-        inline nresult<void> Remove(uint64 index)
+        inline n_result<void> Remove(uint64 index)
         {
-            ncheck_lt(index, Len);
+            n_check_lt(index, Len);
             if(index != Len - 1)
             {
                 memmove(&Data[index], &Data[index + 1], sizeof(T) * (Len - index - 1));
@@ -186,23 +186,23 @@ namespace Nstd
             }
         }
         
-        inline nresult<void> AddRange(nview<const T> v)
+        inline n_result<void> AddRange(n_view<const T> v)
         {
-            ncheck_gte(UINT64_MAX - v.len, Len);
-            ReserveAhead(Len + v.len).ntry();
+            n_check_gte(UINT64_MAX - v.len, Len);
+            ReserveAhead(Len + v.len).n_try();
             for(uint64 i = 0; i < v.len; ++i)
                 Data[Len++] = v.data[i];
             return {};
         }
         
-        inline nresult<void> InsertRange(uint64 index, nview<const T> v)
+        inline n_result<void> InsertRange(uint64 index, n_view<const T> v)
         {
             if(!v)
                 return {};
             
-            ncheck_lte(index, Len);
-            ncheck_gte(UINT64_MAX - v.len, Len);
-            Reserve(Len + v.len).ntry();
+            n_check_lte(index, Len);
+            n_check_gte(UINT64_MAX - v.len, Len);
+            Reserve(Len + v.len).n_try();
             if(index != Len)
                 memmove(&Data[index + v.len], &Data[index], sizeof(T) * (Len - index));
             memcpy(&Data[index], v.data, sizeof(T) * v.len);
@@ -210,29 +210,29 @@ namespace Nstd
             return {};
         }
         
-        inline nresult<void> RemoveRange(uint64 index, uint64 len)
+        inline n_result<void> RemoveRange(uint64 index, uint64 len)
         {
-            ncheck_gte(UINT64_MAX - len, index);
-            ncheck_lte(index + len, Len);
+            n_check_gte(UINT64_MAX - len, index);
+            n_check_lte(index + len, Len);
             if(index + len != Len)
                 memmove(&Data[index], &Data[index + len], sizeof(T) * (Len - index - len));
             Len -= len;
             return {};
         }
         
-        inline nview<T> ToView()
+        inline n_view<T> ToView()
         {
-            return nview<T> { Data, Len };
+            return n_view<T> { Data, Len };
         }
         
-        inline nview<const T> ToView() const
+        inline n_view<const T> ToView() const
         {
-            return nview<const T> { Data, Len };
+            return n_view<const T> { Data, Len };
         }
         
-        inline nresult<void> Free()
+        inline n_result<void> Free()
         {
-            ncheck_true(Alloc);
+            n_check_true(Alloc);
             Alloc->Free(Data);
             Data = NULL;
             Len = 0;

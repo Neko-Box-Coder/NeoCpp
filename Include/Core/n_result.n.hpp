@@ -1,5 +1,5 @@
-#ifndef NCPP_NRESULT_N_HPP
-#define NCPP_NRESULT_N_HPP
+#ifndef NCPP_N_RESULT_N_HPP
+#define NCPP_N_RESULT_N_HPP
 
 /*
 API:
@@ -21,7 +21,7 @@ struct trace
     int line;
 };
 
-struct error_info
+struct n_error_info
 {
     const char* message;
     uint8 msg_len;
@@ -42,7 +42,7 @@ struct error_buffer
     uint8 error_index;
     char message[MSG_CAP];
     trace traces[TRACE_CAP];
-    error_info errors[ERROR_CAP];
+    n_error_info errors[ERROR_CAP];
     
     static constexpr uint16 msg_cap = MSG_CAP;
     static constexpr uint16 trace_cap = TRACE_CAP;
@@ -50,23 +50,23 @@ struct error_buffer
 };
 
 template<typename T>
-struct nresult
+struct n_result
 {
     T value;
-    error_info* err;
+    n_error_info* err;
     inline T& value_or(T val);
     inline T& value_or_default();
 };
 ```
 
-`trace ntrace()`: Create a trace at the invoked location
-`(printf args) ntrace_fmt([const char* prefix], trace t, [const char* suffix])`: Creates a formated 
+`trace n_trace()`: Create a trace at the invoked location
+`(printf args) n_trace_fmt([const char* prefix], trace t, [const char* suffix])`: Creates a formated 
     string arguments with `prefix` and `suffix` prepended before and appended to the formatted 
-    string which can be used with printf, like so: `printf( ntrace_fmt("    at ", myTrace, "\n") );`
+    string which can be used with printf, like so: `printf( n_trace_fmt("    at ", myTrace, "\n") );`
 
-`nresult<T> nerror_msg(fmt, ...)`: Create an error message as nresult
-`T nresult<T>.ntry()`: Try to get the result value, otherwise append trace and return error
-`T nresult<T>.ntry_act(actions)`: Try to get the result value, otherwise perform `actions` where 
+`n_result<T> nerror_msg(fmt, ...)`: Create an error message as n_result
+`T n_result<T>.ntry()`: Try to get the result value, otherwise append trace and return error
+`T n_result<T>.ntry_act(actions)`: Try to get the result value, otherwise perform `actions` where 
     `error_info& err` is available
 
 `ncheck_true(op)`: Return error if `op == true` evaluates to false
@@ -94,7 +94,7 @@ struct nresult
 
 Usage:
 ```c++
-nresult<int> TestError(int v)
+n_result<int> TestError(int v)
 {
     nuse_error_defer();
     nerror_defer { printf("This should be called by nerror_defer\n"); };
@@ -103,12 +103,12 @@ nresult<int> TestError(int v)
     return nerror_msg("Test Error");
 }
 
-nresult<int> TestValue(int v)
+n_result<int> TestValue(int v)
 {
     return v;
 }
 
-nresult<int> TestNested(int v)
+n_result<int> TestNested(int v)
 {
     nuse_error_defer();
     nerror_defer { printf("This should not be called by nerror_defer\n"); };
@@ -117,7 +117,7 @@ nresult<int> TestNested(int v)
     return v2;
 }
 
-nresult<int> TestNestedError(int v)
+n_result<int> TestNestedError(int v)
 {
     nuse_error_defer();
     nerror_defer { printf("This should be called by nerror_defer again\n"); };
@@ -125,13 +125,13 @@ nresult<int> TestNestedError(int v)
     return v2;
 }
 
-nresult<int> TestCheck(int v)
+n_result<int> TestCheck(int v)
 {
     ncheck_eq(v, 5);
     return v + 5;
 }
 
-nresult<int> TestCheckFmt(int v)
+n_result<int> TestCheckFmt(int v)
 {
     ncheck_eq_fmt(v, 5, "v: %d", v);
     return v + 5;
@@ -140,7 +140,7 @@ nresult<int> TestCheckFmt(int v)
 {
     #define PRINT_STR_ERROR() err.string(msgMem, 256); printf("%s\n---------------\n", msgMem)
     char* msgMem = (char*)malloc(256);
-    ndefer { free(msgMem); };
+    n_defer { free(msgMem); };
     
     int r = TestError(5).ntry_act(PRINT_STR_ERROR());
     r = TestNestedError(5).ntry_act(PRINT_STR_ERROR());
@@ -151,10 +151,10 @@ nresult<int> TestCheckFmt(int v)
     
     //NOTE: Traces can be accessed inside `ntry_act()` with `err.traces`, where printf arguments
     //      for printing a single trace can be obtained with 
-    //      `ntrace_fmt(print prefix, trace, print suffix)` and used like so 
-    //      `printf(ntrace_fmt(...))`
+    //      `n_trace_fmt(print prefix, trace, print suffix)` and used like so 
+    //      `printf(n_trace_fmt(...))`
     
-    nresult<int> res = TestValue(3);
+    n_result<int> res = TestValue(3);
     r = res.value;
     bool hasError = res.err;
     if(hasError)
@@ -205,9 +205,9 @@ Stack trace:
 */
 
 
-#include "./ntype.n.hpp"
+#include "./n_type.n.hpp"
+#include "./n_defer.n.hpp"
 #include "./printf.hpp"
-#include "./ndefer.n.hpp"
 
 #if NCCP_NO_PATH
     #define NCPP_PATH "(Private File)"
@@ -230,7 +230,7 @@ Stack trace:
     #define NCPP_ERR_CB(msg, mlen, mcap, ts, tc, t)
 #endif
 
-#include "./nstdint.n.hpp"
+#include "./n_stdint.n.hpp"
 #include <string.h>
 #include <assert.h>
 
@@ -258,14 +258,14 @@ namespace
 
 namespace ncpp
 {
-    struct trace
+    struct n_trace
     {
         const char* function;
         const char* file;
         int line;
         
-        #define ntrace() ncpp::trace { __func__, GetFileName(NCPP_PATH), __LINE__ }
-        #define ntrace_fmt(prefix, trace, suffix) \
+        #define n_make_trace() ncpp::n_trace { __func__, GetFileName(NCPP_PATH), __LINE__ }
+        #define n_trace_fmt(prefix, trace, suffix) \
             prefix "%s:%d in %s()" suffix, trace.file, trace.line, trace.function
     };
     
@@ -274,16 +274,16 @@ namespace ncpp
         thread_local volatile bool global_run_error_defer = false;
     }
     
-    struct error_info
+    struct n_error_info
     {
         const char* message;
         uint16 msg_len;
         uint16 msg_cap;
-        trace* traces;
+        n_trace* traces;
         uint16 traces_len;
         uint16 traces_cap;
         
-        inline void append_trace(trace t)
+        inline void append_trace(n_trace t)
         {
             if(traces_len >= traces_cap)
                 return;
@@ -291,12 +291,12 @@ namespace ncpp
         }
         
         template<uint16 TARGET_MSG_CAP>
-        inline static error_info create(const char* msg, 
-                                        uint16 mlen, 
-                                        uint16 max_mcap,
-                                        trace* ts, 
-                                        uint16 max_tc, 
-                                        trace t)
+        inline static n_error_info create(  const char* msg, 
+                                            uint16 mlen, 
+                                            uint16 max_mcap,
+                                            n_trace* ts, 
+                                            uint16 max_tc, 
+                                            n_trace t)
         {
             #if !defined(NDEBUG) && !NCPP_NO_DEBUG_BREAK
                 debug_break();
@@ -321,7 +321,7 @@ namespace ncpp
             {
                 usize ret_len = snprintf_(NULL, 0, "Error: \n    %s\nStack trace:\n", message);
                 for(int i = 0; i < traces_len; ++i)
-                    ret_len += snprintf_(NULL, 0, ntrace_fmt("    at ", traces[i], "\n"));
+                    ret_len += snprintf_(NULL, 0, n_trace_fmt("    at ", traces[i], "\n"));
                 return ret_len;
             }
             else
@@ -336,16 +336,16 @@ namespace ncpp
                         break;
                     wrote_len += snprintf_(  &mem[wrote_len], 
                                             mem_len - wrote_len, 
-                                            ntrace_fmt("    at ", traces[i], "\n"));
+                                            n_trace_fmt("    at ", traces[i], "\n"));
                 }
                 return wrote_len;
             }
         }
         
         #define error_info_create(...) \
-            ncpp::error_info::create \
+            ncpp::n_error_info::create \
             < \
-                ntypeof(NCPP_ERR_BUFFER)::msg_cap / ntypeof(NCPP_ERR_BUFFER)::error_cap \
+                n_typeof(NCPP_ERR_BUFFER)::msg_cap / n_typeof(NCPP_ERR_BUFFER)::error_cap \
             > \
             ( \
                 &NCPP_ERR_BUFFER.message[NCPP_ERR_BUFFER.message_index], \
@@ -355,19 +355,19 @@ namespace ncpp
                 NCPP_ERR_BUFFER.msg_cap - NCPP_ERR_BUFFER.message_index, \
                 &NCPP_ERR_BUFFER.traces[NCPP_ERR_BUFFER.trace_index], \
                 NCPP_ERR_BUFFER.trace_cap / NCPP_ERR_BUFFER.error_cap, \
-                ntrace() \
+                n_make_trace() \
             )
     };
     
     template<uint16 MSG_CAP = 1024, uint16 TRACE_CAP = 128, uint8 ERROR_CAP = 8>
-    struct error_buffer
+    struct n_error_buffer
     {
         uint16 message_index;
         uint16 trace_index;
         uint8 error_index;
         char message[MSG_CAP];
-        trace traces[TRACE_CAP];
-        error_info errors[ERROR_CAP];
+        n_trace traces[TRACE_CAP];
+        n_error_info errors[ERROR_CAP];
         
         static constexpr uint16 msg_cap = MSG_CAP;
         static constexpr uint16 trace_cap = TRACE_CAP;
@@ -377,16 +377,16 @@ namespace ncpp
     namespace
     {
         #if INTERN_NCPP_USE_DEFAULT_ERR_BUFFER
-            thread_local error_buffer<> global_error_buffer = {};
+            thread_local n_error_buffer<> global_error_buffer = {};
         #endif
-        thread_local error_info* global_error_info = NULL;
+        thread_local n_error_info* global_error_info = NULL;
     }
 
     template<typename ERROR_BUFFER_T>
-    inline error_info* store_error_info(nref ERROR_BUFFER_T& buf, error_info i)
+    inline n_error_info* store_error_info(n_ref ERROR_BUFFER_T& buf, n_error_info i)
     {
         buf.errors[buf.error_index] = i;
-        error_info* ret_i = &buf.errors[buf.error_index];
+        n_error_info* ret_i = &buf.errors[buf.error_index];
 
         uint16 target_msg_cap = buf.msg_cap / buf.error_cap;
         uint16 target_msg_idx = buf.message_index + i.msg_cap;
@@ -411,14 +411,14 @@ namespace ncpp
     }
     
     template<typename T>
-    struct nresult
+    struct n_result
     {
         T value;
-        error_info* err;
+        n_error_info* err;
         
-        inline nresult() = default;
-        inline nresult(T val) { value = val; err = NULL; }
-        inline nresult(T val, error_info* e) { value = val; err = e; }
+        inline n_result() = default;
+        inline n_result(T val) { value = val; err = NULL; }
+        inline n_result(T val, n_error_info* e) { value = val; err = e; }
         
         inline void dummy()
         {
@@ -443,7 +443,7 @@ namespace ncpp
             return value;
         }
         
-        inline nresult& store_error_if_any()
+        inline n_result& store_error_if_any()
         {
             if(err)
                 global_error_info = err;
@@ -451,20 +451,20 @@ namespace ncpp
         }
     };
     
-    static_assert(nis_simple(nresult<int>), "");
+    static_assert(n_is_simple(n_result<int>), "");
     
     template<>
-    struct nresult<void>
+    struct n_result<void>
     {
         char c;
-        error_info* err;
+        n_error_info* err;
         
         inline void value_or_default()
         {
             return;
         }
         
-        inline nresult& store_error_if_any()
+        inline n_result& store_error_if_any()
         {
             if(err)
                 global_error_info = err;
@@ -472,25 +472,25 @@ namespace ncpp
         }
     };
     
-    static_assert(nis_simple(nresult<void>), "");
+    static_assert(n_is_simple(n_result<void>), "");
     
     
-    #define nerror_msg(...) { {}, store_error_info(nref NCPP_ERR_BUFFER, error_info_create(__VA_ARGS__)) }
-    #define ntry_act(...) \
+    #define n_error_msg(...) { {}, store_error_info(n_ref NCPP_ERR_BUFFER, error_info_create(__VA_ARGS__)) }
+    #define n_try_act(...) \
         store_error_if_any().value_or_default(); \
         do \
         { \
             if(ncpp::global_error_info) \
             { \
-                ncpp::global_error_info->append_trace(ntrace()); \
-                error_info& err = *ncpp::global_error_info; \
+                ncpp::global_error_info->append_trace(n_make_trace()); \
+                n_error_info& err = *ncpp::global_error_info; \
                 ncpp::global_error_info = NULL; \
                 global_run_error_defer = true; \
                 __VA_ARGS__; \
             } \
         } while(false)
     
-    #define ntry() ntry_act(return { {}, &err });
+    #define n_try() n_try_act(return { {}, &err });
     #define INTERN_NCPP_CONCAT(a, b) a ## b
     #define INTERN_NCPP_COMPOSE(a, b) a b
     #define INTERN_NCPP_TEMP_NAME(name) INTERN_NCPP_COMPOSE(INTERN_NCPP_CONCAT, (name, __LINE__))
@@ -503,40 +503,40 @@ namespace ncpp
         { \
             auto INTERN_NCPP_TEMP_NAME(autoLeft) = left; \
             auto INTERN_NCPP_TEMP_NAME(autoRight) = right; \
-            if(!(INTERN_NCPP_TEMP_NAME(autoLeft) op (ntypeof(INTERN_NCPP_TEMP_NAME(autoLeft)))INTERN_NCPP_TEMP_NAME(autoRight))) \
-                return nerror_msg(__VA_ARGS__); \
+            if(!(INTERN_NCPP_TEMP_NAME(autoLeft) op (n_typeof(INTERN_NCPP_TEMP_NAME(autoLeft)))INTERN_NCPP_TEMP_NAME(autoRight))) \
+                return n_error_msg(__VA_ARGS__); \
         } \
         while(false)
 
     #define INTERN_NCPP_EXPR_STR(op_str) "Expression \"" op_str "\" has failed. "
 
-    #define ncheck_true(op) INTERNAL_NCPP_ASSERT(op, !=, false, INTERN_NCPP_EXPR_STR(INTERN_NCPP_DELAY_STR(op) " != false"))
-    #define ncheck_false(op) INTERNAL_NCPP_ASSERT(op, ==, false, INTERN_NCPP_EXPR_STR(INTERN_NCPP_DELAY_STR(op) " == false"))
-    #define ncheck_eq(op, val) INTERNAL_NCPP_ASSERT(op, ==, val, INTERN_NCPP_EXPR_STR(INTERN_NCPP_DELAY_STR(op) " == " INTERN_NCPP_DELAY_STR(val)))
-    #define ncheck_neq(op, val) INTERNAL_NCPP_ASSERT(op, !=, val, INTERN_NCPP_EXPR_STR(INTERN_NCPP_DELAY_STR(op) " != " INTERN_NCPP_DELAY_STR(val)))
-    #define ncheck_gt(op, val) INTERNAL_NCPP_ASSERT(op, >, val, INTERN_NCPP_EXPR_STR(INTERN_NCPP_DELAY_STR(op) " > " INTERN_NCPP_DELAY_STR(val)))
-    #define ncheck_gte(op, val) INTERNAL_NCPP_ASSERT(op, >=, val, INTERN_NCPP_EXPR_STR(INTERN_NCPP_DELAY_STR(op) " >= " INTERN_NCPP_DELAY_STR(val)))
-    #define ncheck_lt(op, val) INTERNAL_NCPP_ASSERT(op, <, val, INTERN_NCPP_EXPR_STR(INTERN_NCPP_DELAY_STR(op) " < " INTERN_NCPP_DELAY_STR(val)))
-    #define ncheck_lte(op, val) INTERNAL_NCPP_ASSERT(op, <=, val, INTERN_NCPP_EXPR_STR(INTERN_NCPP_DELAY_STR(op) " <= " INTERN_NCPP_DELAY_STR(val)))
+    #define n_check_true(op) INTERNAL_NCPP_ASSERT(op, !=, false, INTERN_NCPP_EXPR_STR(INTERN_NCPP_DELAY_STR(op) " != false"))
+    #define n_check_false(op) INTERNAL_NCPP_ASSERT(op, ==, false, INTERN_NCPP_EXPR_STR(INTERN_NCPP_DELAY_STR(op) " == false"))
+    #define n_check_eq(op, val) INTERNAL_NCPP_ASSERT(op, ==, val, INTERN_NCPP_EXPR_STR(INTERN_NCPP_DELAY_STR(op) " == " INTERN_NCPP_DELAY_STR(val)))
+    #define n_check_neq(op, val) INTERNAL_NCPP_ASSERT(op, !=, val, INTERN_NCPP_EXPR_STR(INTERN_NCPP_DELAY_STR(op) " != " INTERN_NCPP_DELAY_STR(val)))
+    #define n_check_gt(op, val) INTERNAL_NCPP_ASSERT(op, >, val, INTERN_NCPP_EXPR_STR(INTERN_NCPP_DELAY_STR(op) " > " INTERN_NCPP_DELAY_STR(val)))
+    #define n_check_gte(op, val) INTERNAL_NCPP_ASSERT(op, >=, val, INTERN_NCPP_EXPR_STR(INTERN_NCPP_DELAY_STR(op) " >= " INTERN_NCPP_DELAY_STR(val)))
+    #define n_check_lt(op, val) INTERNAL_NCPP_ASSERT(op, <, val, INTERN_NCPP_EXPR_STR(INTERN_NCPP_DELAY_STR(op) " < " INTERN_NCPP_DELAY_STR(val)))
+    #define n_check_lte(op, val) INTERNAL_NCPP_ASSERT(op, <=, val, INTERN_NCPP_EXPR_STR(INTERN_NCPP_DELAY_STR(op) " <= " INTERN_NCPP_DELAY_STR(val)))
     
     
-    #define ncheck_true_fmt(op, ...) INTERNAL_NCPP_ASSERT(op, !=, false, __VA_ARGS__)
-    #define ncheck_false_fmt(op, ...) INTERNAL_NCPP_ASSERT(op, ==, false, __VA_ARGS__)
-    #define ncheck_eq_fmt(op, val, ...) INTERNAL_NCPP_ASSERT(op, ==, val, __VA_ARGS__)
-    #define ncheck_neq_fmt(op, val, ...) INTERNAL_NCPP_ASSERT(op, !=, val, __VA_ARGS__)
-    #define ncheck_gt_fmt(op, val, ...) INTERNAL_NCPP_ASSERT(op, >, val, __VA_ARGS__)
-    #define ncheck_gte_fmt(op, val, ...) INTERNAL_NCPP_ASSERT(op, >=, val, __VA_ARGS__)
-    #define ncheck_lt_fmt(op, val, ...) INTERNAL_NCPP_ASSERT(op, <, val, __VA_ARGS__)
-    #define ncheck_lte_fmt(op, val, ...) INTERNAL_NCPP_ASSERT(op, <=, val, __VA_ARGS__)
+    #define n_check_true_fmt(op, ...) INTERNAL_NCPP_ASSERT(op, !=, false, __VA_ARGS__)
+    #define n_check_false_fmt(op, ...) INTERNAL_NCPP_ASSERT(op, ==, false, __VA_ARGS__)
+    #define n_check_eq_fmt(op, val, ...) INTERNAL_NCPP_ASSERT(op, ==, val, __VA_ARGS__)
+    #define n_check_neq_fmt(op, val, ...) INTERNAL_NCPP_ASSERT(op, !=, val, __VA_ARGS__)
+    #define n_check_gt_fmt(op, val, ...) INTERNAL_NCPP_ASSERT(op, >, val, __VA_ARGS__)
+    #define n_check_gte_fmt(op, val, ...) INTERNAL_NCPP_ASSERT(op, >=, val, __VA_ARGS__)
+    #define n_check_lt_fmt(op, val, ...) INTERNAL_NCPP_ASSERT(op, <, val, __VA_ARGS__)
+    #define n_check_lte_fmt(op, val, ...) INTERNAL_NCPP_ASSERT(op, <=, val, __VA_ARGS__)
 
 
-    #define nuse_error_defer() bool missing_nuse_error_defer = false; ncpp::global_run_error_defer = false; (void)missing_nuse_error_defer; ndefer { ncpp::global_run_error_defer = false; }
+    #define n_use_error_defer() bool missing_nuse_error_defer = false; ncpp::global_run_error_defer = false; (void)missing_nuse_error_defer; n_defer { ncpp::global_run_error_defer = false; }
     
     //NOTE: Improvised from https://stackoverflow.com/a/42060129
     struct ErrorDeferDummy {};
     template <class T> struct ErrorDeferObj { T f; ~ErrorDeferObj() { if(global_run_error_defer) f(); } };
     template <class T> ErrorDeferObj<T> operator*(ErrorDeferDummy, T f) { return {f}; }
-    #define nerror_defer missing_nuse_error_defer = true; auto INTERNAL_DEFER__(__COUNTER__) = ncpp::ErrorDeferDummy{} * [&]()
+    #define n_error_defer missing_nuse_error_defer = true; auto INTERNAL_DEFER__(__COUNTER__) = ncpp::ErrorDeferDummy{} * [&]()
 }
 
 #endif

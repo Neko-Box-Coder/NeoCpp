@@ -88,7 +88,7 @@ namespace Nstd
         TaggedUnion<HeapAllocator, ArenaAllocator, CustomAllocator, Allocator*> Impl;
         
         template<typename T, typename AllocType>
-        static inline Allocator Init(uint64 reserveSize) ndefer_with(Destroy(ret_val))
+        static inline Allocator Init(uint64 reserveSize) n_defer_with(Destroy(ret_val))
         {
             Allocator a = {};
             a.Impl = a.Impl.template Init<AllocType>( AllocType::template Init<T>(reserveSize) );
@@ -97,7 +97,7 @@ namespace Nstd
         
         template<typename T>
         static inline Allocator InitProxy(  Allocator* alloc, 
-                                            uint64 reserveSize) ndefer_with(Destroy(ret_val))
+                                            uint64 reserveSize) n_defer_with(Destroy(ret_val))
         {
             Allocator a = {};
             a.Impl = a.Impl.template Init<Allocator*>(alloc);
@@ -109,11 +109,11 @@ namespace Nstd
             { \
                 switch(Impl.Index) \
                 { \
-                    case ntypeof(Impl)::GetIndex<HeapAllocator>(): \
+                    case n_typeof(Impl)::GetIndex<HeapAllocator>(): \
                         return Impl.Get<HeapAllocator>().action; \
-                    case ntypeof(Impl)::GetIndex<ArenaAllocator>(): \
-                    case ntypeof(Impl)::GetIndex<CustomAllocator>(): \
-                    case ntypeof(Impl)::GetIndex<Allocator*>(): \
+                    case n_typeof(Impl)::GetIndex<ArenaAllocator>(): \
+                    case n_typeof(Impl)::GetIndex<CustomAllocator>(): \
+                    case n_typeof(Impl)::GetIndex<Allocator*>(): \
                         tempRet; \
                     default: \
                         tempRet; \

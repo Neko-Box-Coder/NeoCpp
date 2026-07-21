@@ -18,7 +18,7 @@ namespace Nstd
         bool Batched;
     };
     
-    template<typename T, nenable_if(nis_simple(T))>
+    template<typename T, n_enable_if(n_is_simple(T))>
     struct LinkedList
     {
         Allocator* Alloc;
@@ -27,7 +27,7 @@ namespace Nstd
         uint64 Len;
         
         
-        inline LinkedList Init(nref Allocator& alloc)
+        inline LinkedList Init(n_ref Allocator& alloc)
         {
             LinkedList retList;
             retList.Alloc = &alloc;
@@ -38,57 +38,57 @@ namespace Nstd
         }
         
         template<typename... Ts>
-        inline nresult<ListNode<T>*> AppendValues(nref ListNode<T>* node, Ts... values)
+        inline n_result<ListNode<T>*> AppendValues(n_ref ListNode<T>* node, Ts... values)
         {
-            ncheck_true(Alloc);
+            n_check_true(Alloc);
             
             T* arr[] = { &values... };
-            ListNode<T>* newNodes = Alloc->Malloc<ListNode<T>>(narray_cap(arr));
-            ncheck_true(newNodes);
-            for(int i = 0; i < narray_cap(arr); ++i)
+            ListNode<T>* newNodes = Alloc->Malloc<ListNode<T>>(n_array_cap(arr));
+            n_check_true(newNodes);
+            for(int i = 0; i < n_array_cap(arr); ++i)
             {
                 ListNode<T>* Next;
                 ListNode<T>* Prev;
                 T Value;
                 bool Batched;
                 
-                if(i == 0 && i == narray_cap(arr) - 1)
+                if(i == 0 && i == n_array_cap(arr) - 1)
                     newNodes[i] = { node->Next, node, *arr[i], false };
                 else if(i == 0)
                     newNodes[i] = { &newNodes[i + 1], node, *arr[i], false };
-                else if(i == narray_cap(arr) - 1)
+                else if(i == n_array_cap(arr) - 1)
                     newNodes[i] = { node->Next, &newNodes[i - 1], *arr[i], true };
                 else
                     newNodes[i] = { &newNodes[i + 1], &newNodes[i - 1], *arr[i], true };
             }
             
             if(node->Next)
-                node->Next->Prev = &newNodes[narray_cap(arr) - 1];
+                node->Next->Prev = &newNodes[n_array_cap(arr) - 1];
             node->Next = &newNodes[0];
-            Len += narray_cap(arr);
-            return &newNodes[narray_cap(arr) - 1];
+            Len += n_array_cap(arr);
+            return &newNodes[n_array_cap(arr) - 1];
         }
         
         template<typename... Ts>
-        inline nresult<ListNode<T>*> PrependValues(nref ListNode<T>* node, Ts... values)
+        inline n_result<ListNode<T>*> PrependValues(n_ref ListNode<T>* node, Ts... values)
         {
-            ncheck_true(Alloc);
+            n_check_true(Alloc);
             
             T* arr[] = { &values... };
-            ListNode<T>* newNodes = Alloc->Malloc<ListNode<T>>(narray_cap(arr));
-            ncheck_true(newNodes);
-            for(int i = 0; i < narray_cap(arr); ++i)
+            ListNode<T>* newNodes = Alloc->Malloc<ListNode<T>>(n_array_cap(arr));
+            n_check_true(newNodes);
+            for(int i = 0; i < n_array_cap(arr); ++i)
             {
                 ListNode<T>* Next;
                 ListNode<T>* Prev;
                 T Value;
                 bool Batched;
                 
-                if(i == 0 && i == narray_cap(arr) - 1)
+                if(i == 0 && i == n_array_cap(arr) - 1)
                     newNodes[i] = { node, node->Prev, *arr[i], false };
                 else if(i == 0)
                     newNodes[i] = { &newNodes[i + 1], node->Prev, *arr[i], false };
-                else if(i == narray_cap(arr) - 1)
+                else if(i == n_array_cap(arr) - 1)
                     newNodes[i] = { node, &newNodes[i - 1], *arr[i], true };
                 else
                     newNodes[i] = { &newNodes[i + 1], &newNodes[i - 1], *arr[i], true };
@@ -96,35 +96,35 @@ namespace Nstd
             
             if(node->Prev)
                 node->Prev->Next = &newNodes[0];
-            node->Prev = &newNodes[narray_cap(arr) - 1];
-            Len += narray_cap(arr);
+            node->Prev = &newNodes[n_array_cap(arr) - 1];
+            Len += n_array_cap(arr);
             return &newNodes[0];
         }
         
         template<typename... Ts>
-        inline LinkedList InitValues(nref Allocator& alloc, Ts... values)
+        inline LinkedList InitValues(n_ref Allocator& alloc, Ts... values)
         {
             LinkedList l = Init(alloc);
             l.AppendValues(l.Tail, values...);
             return l;
         }
         
-        inline nresult<ListNode<T>*> Append(nref ListNode<T>* node, T val)
+        inline n_result<ListNode<T>*> Append(n_ref ListNode<T>* node, T val)
         {
-            nuse_error_defer();
+            n_use_error_defer();
             
-            ncheck_true(Alloc);
+            n_check_true(Alloc);
             ListNode<T>* newNode = Alloc->Malloc<ListNode<T>>(1);
-            ncheck_true(newNode);
-            nerror_defer { Alloc->Free(newNode); };
+            n_check_true(newNode);
+            n_error_defer { Alloc->Free(newNode); };
             
             *newNode = { node, NULL, val, false };
             
             if(!node) //Empty list
             {
-                ncheck_false(Head);
-                ncheck_false(Tail);
-                ncheck_eq(Len, 0);
+                n_check_false(Head);
+                n_check_false(Tail);
+                n_check_eq(Len, 0);
                 
                 Head = newNode;
                 Tail = newNode;
@@ -134,35 +134,35 @@ namespace Nstd
             
             if(node->Next) //Not tail
             {
-                ncheck_eq(node->Next->Prev, node);
+                n_check_eq(node->Next->Prev, node);
                 ListNode<T> origNext = node->Next;
                 newNode->Next = origNext;
                 origNext->Prev = newNode;
             }
             else //Tail
-                ncheck_eq(node, Tail);
+                n_check_eq(node, Tail);
             
             node->Next = newNode;
             ++Len;
             return newNode;
         }
         
-        inline nresult<ListNode<T>*> Prepend(nref ListNode<T>* node, T val)
+        inline n_result<ListNode<T>*> Prepend(n_ref ListNode<T>* node, T val)
         {
-            nuse_error_defer();
+            n_use_error_defer();
             
-            ncheck_true(Alloc);
+            n_check_true(Alloc);
             ListNode<T>* newNode = Alloc->Malloc<ListNode<T>>(1);
-            ncheck_true(newNode);
-            nerror_defer { Alloc->Free(newNode); };
+            n_check_true(newNode);
+            n_error_defer { Alloc->Free(newNode); };
             
             *newNode = { NULL, node, val, false };
             
             if(!node) //Empty list
             {
-                ncheck_false(Head);
-                ncheck_false(Tail);
-                ncheck_eq(Len, 0);
+                n_check_false(Head);
+                n_check_false(Tail);
+                n_check_eq(Len, 0);
                 
                 Head = newNode;
                 Tail = newNode;
@@ -172,32 +172,32 @@ namespace Nstd
             
             if(node->Prev) //Not Head
             {
-                ncheck_eq(node->Prev->Next, node);
+                n_check_eq(node->Prev->Next, node);
                 ListNode<T> origPrev = node->Prev;
                 newNode->Prev = origPrev;
                 origPrev->Next = newNode;
             }
             else //Head
-                ncheck_eq(node, Head);
+                n_check_eq(node, Head);
             
             node->Prev = newNode;
             ++Len;
             return newNode;
         }
         
-        inline nresult<void> Remove(nref ListNode<T>* node)
+        inline n_result<void> Remove(n_ref ListNode<T>* node)
         {
             if(!node)
                 return {};
             
-            ncheck_true(Alloc);
-            ncheck_true(Head && Tail);
+            n_check_true(Alloc);
+            n_check_true(Head && Tail);
             
             ListNode<T>* next = node->Next;
             ListNode<T>* prev = node->Prev;
             if(!prev) //Head
             {
-                ncheck_eq(node, Head);
+                n_check_eq(node, Head);
                 if(!node->Batched)
                     Alloc->Free(node);
                 Head = next;
@@ -207,7 +207,7 @@ namespace Nstd
             }
             else if(!next) //Tail
             {
-                ncheck_eq(node, Tail);
+                n_check_eq(node, Tail);
                 if(!node->Batched)
                     Alloc->Free(node);
                 Tail = prev;
@@ -226,21 +226,21 @@ namespace Nstd
             }
         }
         
-        inline nresult<void> Reserve(uint64 size)
+        inline n_result<void> Reserve(uint64 size)
         {
-            ncheck_true(Alloc);
+            n_check_true(Alloc);
             Alloc->Reserve<LinkedList<T>>(size);
             return {};
         }
         
-        inline nresult<ListNode<T>*> AppendRange(nref ListNode<T>* node, nview<const T> v)
+        inline n_result<ListNode<T>*> AppendRange(n_ref ListNode<T>* node, n_view<const T> v)
         {
-            ncheck_true(Alloc);
+            n_check_true(Alloc);
             if(!v)
                 return {};
             
             ListNode<T>* newNodes = Alloc->Malloc<ListNode<T>>(v.len);
-            ncheck_true(newNodes);
+            n_check_true(newNodes);
             for(int i = 0; i < v.len; ++i)
             {
                 ListNode<T>* Next;
@@ -265,14 +265,14 @@ namespace Nstd
             return &newNodes[v.len - 1];
         }
         
-        inline nresult<ListNode<T>*> PrependRange(nref ListNode<T>* node, nview<const T> v)
+        inline n_result<ListNode<T>*> PrependRange(n_ref ListNode<T>* node, n_view<const T> v)
         {
-            ncheck_true(Alloc);
+            n_check_true(Alloc);
             if(!v)
                 return {};
             
             ListNode<T>* newNodes = Alloc->Malloc<ListNode<T>>(v.len);
-            ncheck_true(newNodes);
+            n_check_true(newNodes);
             for(int i = 0; i < v.len; ++i)
             {
                 ListNode<T>* Next;
@@ -297,42 +297,42 @@ namespace Nstd
             return &newNodes[0];
         }
         
-        inline nresult<void> Clone(nref ListNode<T>* nodeToInsertAfter, nref LinkedList<T>& other)
+        inline n_result<void> Clone(n_ref ListNode<T>* nodeToInsertAfter, n_ref LinkedList<T>& other)
         {
-            ncheck_true(Alloc);
+            n_check_true(Alloc);
             
             if(!other.Len)
                 return {};
             
             T* vals = Alloc->Malloc<T>(other.Len);
-            ncheck_true(vals);
-            ndefer { free(vals); };
+            n_check_true(vals);
+            n_defer { free(vals); };
             
             uint64 curIdx = 0;
             ListNode<T>* curNode = other.Head;
             while(curNode)
             {
-                ncheck_lt(curIdx, other.Len);
+                n_check_lt(curIdx, other.Len);
                 vals[curIdx++] = curNode->Value;
             }
             
-            (void) AppendRange(nodeToInsertAfter, nview<const T> { vals, other.Len }).ntry();
+            (void) AppendRange(nodeToInsertAfter, n_view<const T> { vals, other.Len }).ntry();
             return {};
         }
         
         //NOTE: `otherNodeEnd` is EXCLUSIVE
-        inline nresult<void> CloneRange(nref ListNode<T>* nodeToInsertAfter, 
-                                        nref ListNode<T>* otherNodeBegin,
-                                        nref ListNode<T>* otherNodeEnd)
+        inline n_result<void> CloneRange(   n_ref ListNode<T>* nodeToInsertAfter, 
+                                            n_ref ListNode<T>* otherNodeBegin,
+                                            n_ref ListNode<T>* otherNodeEnd)
         {
-            ncheck_true(Alloc);
-            ncheck_true(otherNodeBegin);
-            ncheck_true(otherNodeEnd);
+            n_check_true(Alloc);
+            n_check_true(otherNodeBegin);
+            n_check_true(otherNodeEnd);
             
             uint64 cap = 64;
             T* vals = Alloc->Malloc<T>(cap);
-            ncheck_true(vals);
-            ndefer { free(vals); };
+            n_check_true(vals);
+            n_defer { free(vals); };
             
             uint64 curIdx = 0;
             ListNode<T>* curNode = otherNodeBegin;
@@ -345,7 +345,7 @@ namespace Nstd
                         newCap = UINT64_MAX;
                     
                     T* t = Alloc->Realloc<T>(vals, newCap);
-                    ncheck_true(t);
+                    n_check_true(t);
                     vals = t;
                     cap = newCap;
                 }
@@ -354,13 +354,13 @@ namespace Nstd
                 curNode = curNode->Next;
             }
             
-            (void) AppendRange(nodeToInsertAfter, nview<const T> { vals, curIdx }).ntry();
+            (void) AppendRange(nodeToInsertAfter, n_view<const T> { vals, curIdx }).ntry();
             return {};
         }
         
-        inline nresult<void> Free()
+        inline n_result<void> Free()
         {
-            ncheck_true(Alloc);
+            n_check_true(Alloc);
             
             ListNode<T>* currentNode = Head;
             while(currentNode)

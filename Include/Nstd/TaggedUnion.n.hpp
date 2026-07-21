@@ -57,7 +57,7 @@ namespace Nstd
         
         uint8 Index;
     
-        template<typename T, nenable_if(nis_same(T, T1))>
+        template<typename T, n_enable_if(n_is_same(T, T1))>
         static TaggedUnion Init(const T& val)
         {
             TaggedUnion returnT;
@@ -66,31 +66,31 @@ namespace Nstd
             return returnT;
         }
         
-        template<typename T, nenable_if(nis_same(T, T1))>
+        template<typename T, n_enable_if(n_is_same(T, T1))>
         static constexpr uint8 GetIndex()
         {
             return 1;
         }
         
-        template<typename T, nenable_if(nis_same(T, T1))>
+        template<typename T, n_enable_if(n_is_same(T, T1))>
         T1& Get()
         {
             return Ts.TT1;
         }
         
-        template<typename T, nenable_if(nis_same(T, T1))>
+        template<typename T, n_enable_if(n_is_same(T, T1))>
         const T1& Get() const
         {
             return Ts.TT1;
         }
         
-        #define INTERN_MATCHED(currentT) nis_same(T, currentT)
-        #define INTERN_DEFINED(previousT, currentT, i) !nis_same(previousT, currentT) && i
+        #define INTERN_MATCHED(currentT) n_is_same(T, currentT)
+        #define INTERN_DEFINED(previousT, currentT, i) !n_is_same(previousT, currentT) && i
         
         
         #define INTERN_DECLARE_FUNCS(previousT, currentT, dataField, i) \
             template<   typename T, \
-                        nenable_if(INTERN_MATCHED(currentT) && INTERN_DEFINED(previousT, currentT, i))> \
+                        n_enable_if(INTERN_MATCHED(currentT) && INTERN_DEFINED(previousT, currentT, i))> \
             static TaggedUnion Init(const currentT& val) \
             { \
                 TaggedUnion returnT; \
@@ -100,21 +100,21 @@ namespace Nstd
             } \
             \
             template<   typename T, \
-                        nenable_if(INTERN_MATCHED(currentT) && INTERN_DEFINED(previousT, currentT, i))> \
+                        n_enable_if(INTERN_MATCHED(currentT) && INTERN_DEFINED(previousT, currentT, i))> \
             static constexpr uint8 GetIndex() \
             { \
                 return i; \
             } \
             \
             template<   typename T, \
-                        nenable_if(INTERN_MATCHED(currentT) && INTERN_DEFINED(previousT, currentT, i))> \
+                        n_enable_if(INTERN_MATCHED(currentT) && INTERN_DEFINED(previousT, currentT, i))> \
             currentT& Get() \
             { \
                 return Ts.dataField; \
             } \
             \
             template<   typename T, \
-                        nenable_if(INTERN_MATCHED(currentT) && INTERN_DEFINED(previousT, currentT, i))> \
+                        n_enable_if(INTERN_MATCHED(currentT) && INTERN_DEFINED(previousT, currentT, i))> \
             const currentT& Get() const \
             { \
                 return Ts.dataField; \

@@ -1,5 +1,5 @@
-#ifndef NCPP_NARRAY_N_HPP
-#define NCPP_NARRAY_N_HPP
+#ifndef NCPP_N_ARRAY_N_HPP
+#define NCPP_N_ARRAY_N_HPP
 
 /*
 Usage:
@@ -27,11 +27,11 @@ narray_at(a, 5): 0
 ```
 */
 
-#ifndef ntypeof
-    #define ntypeof(x) decltype(x)
+#ifndef n_typeof
+    #define n_typeof(x) decltype(x)
 #endif
 
-#define narray_cap(arr) (sizeof(arr) / sizeof(ntypeof(arr[0])))
-#define narray_at(arr, i) (i < narray_cap(arr) ? arr[i] : ntypeof(arr[0] + 0)())
+#define n_array_cap(arr) (sizeof(arr) / sizeof(n_typeof(arr[0])))
+#define n_array_at(arr, i) (i < n_array_cap(arr) ? arr[i] : n_typeof(arr[0] + 0)())
 
 #endif

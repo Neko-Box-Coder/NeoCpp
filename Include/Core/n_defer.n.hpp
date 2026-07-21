@@ -1,5 +1,5 @@
-#ifndef NCPP_NDEFER_N_HPP
-#define NCPP_NDEFER_N_HPP
+#ifndef NCPP_N_DEFER_N_HPP
+#define NCPP_N_DEFER_N_HPP
 
 /*
 Usage:
@@ -33,7 +33,7 @@ namespace ncpp
         #define INTERNAL_DEFER__(LINE) INTERNAL_DEFER_(LINE)
     #endif
     
-    #define ndefer auto INTERNAL_DEFER__(__COUNTER__) = ncpp::DeferDummy{} * [&]()
+    #define n_defer auto INTERNAL_DEFER__(__COUNTER__) = ncpp::DeferDummy{} * [&]()
 }
 
 #endif

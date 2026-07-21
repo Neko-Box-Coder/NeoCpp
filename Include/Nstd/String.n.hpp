@@ -8,27 +8,27 @@ struct String
 {
     List<char> Intern_Chars;
     
-    inline String Init(nref Allocator& alloc, uint64 reserveSize);
+    inline String Init(n_ref Allocator& alloc, uint64 reserveSize);
     inline char* Data();
     inline const char* Data() const;
     inline uint64 Len() const;
-    inline nresult<void> AppendCString(const char* cs);
-    inline nresult<void> AppendStringView(View<char> v);
-    inline String InitCString(nref Allocator& alloc, const char* cs);
-    inline String InitStringView(nref Allocator& alloc, View<char> v);
+    inline n_result<void> AppendCString(const char* cs);
+    inline n_result<void> AppendStringView(View<char> v);
+    inline String InitCString(n_ref Allocator& alloc, const char* cs);
+    inline String InitStringView(n_ref Allocator& alloc, View<char> v);
     inline char& At(uint64 index);
     inline char At(uint64 index) const;
-    inline nresult<void> Reserve(uint64 size);
-    inline nresult<void> Resize(uint64 size);
-    inline nresult<void> Add(char c);
-    inline nresult<void> Insert(uint64 index, char c);
-    inline nresult<void> Remove(uint64 index);
-    inline nresult<void> InsertStringView(uint64 index, View<char> view);
-    inline nresult<void> InsertCString(const char* cs);
-    inline nresult<void> RemoveRange(uint64 index, uint64 len);
-    inline nresult<uint64> FindStringView(View<char> view);
-    inline nresult<uint64> FindCString(const char* cs);
-    inline nresult<void> Free();
+    inline n_result<void> Reserve(uint64 size);
+    inline n_result<void> Resize(uint64 size);
+    inline n_result<void> Add(char c);
+    inline n_result<void> Insert(uint64 index, char c);
+    inline n_result<void> Remove(uint64 index);
+    inline n_result<void> InsertStringView(uint64 index, View<char> view);
+    inline n_result<void> InsertCString(const char* cs);
+    inline n_result<void> RemoveRange(uint64 index, uint64 len);
+    inline n_result<uint64> FindStringView(View<char> view);
+    inline n_result<uint64> FindCString(const char* cs);
+    inline n_result<void> Free();
 };
 ```
 
@@ -46,7 +46,7 @@ namespace Nstd
     {
         List<char> Intern_Chars;
         
-        inline String Init(nref Allocator& alloc, uint64 reserveSize)
+        inline String Init(n_ref Allocator& alloc, uint64 reserveSize)
         {
             Intern_Chars = Intern_Chars.Init(alloc, reserveSize + 1);
             Intern_Chars.Add('\0');
@@ -68,27 +68,27 @@ namespace Nstd
             return Intern_Chars.Len > 0 ? Intern_Chars.Len - 1 : 0;
         }
         
-        inline nresult<void> Intern_PruneNull()
+        inline n_result<void> Intern_PruneNull()
         {
             return  Intern_Chars.Len > 0 && Intern_Chars.Data[Intern_Chars.Len - 1] == '\0' ? 
                     Intern_Chars.Remove(Intern_Chars.Len - 1) :
-                    nresult<void> {};
+                    n_result<void> {};
         }
         
-        inline nresult<void> Intern_RestoreNull()
+        inline n_result<void> Intern_RestoreNull()
         {
             return Intern_Chars.Add('\0');
         }
         
-        inline nresult<void> AppendString(nview<const char> v)
+        inline n_result<void> AppendString(n_view<const char> v)
         {
-            Intern_PruneNull().ntry();
-            ndefer { Intern_RestoreNull(); };
-            Intern_Chars.AddRange(v).ntry();
+            Intern_PruneNull().n_try();
+            n_defer { Intern_RestoreNull(); };
+            Intern_Chars.AddRange(v).n_try();
             return {};
         }
         
-        inline String InitString(nref Allocator& alloc, nview<const char> v)
+        inline String InitString(n_ref Allocator& alloc, n_view<const char> v)
         {
             String s = s.Init(alloc, v.len);
             s.AppendString(v);
@@ -105,67 +105,67 @@ namespace Nstd
             return Intern_Chars.At(index);
         }
         
-        inline nresult<void> Reserve(uint64 size)
+        inline n_result<void> Reserve(uint64 size)
         {
-            Intern_Chars.Reserve(size + 1).ntry();
+            Intern_Chars.Reserve(size + 1).n_try();
             return {};
         }
         
-        inline nresult<void> Resize(uint64 size)
+        inline n_result<void> Resize(uint64 size)
         {
-            Intern_Chars.Resize(size + 1).ntry();
+            Intern_Chars.Resize(size + 1).n_try();
             Intern_Chars.At(Intern_Chars.Len - 1) = '\0';
             return {};
         }
         
-        inline nresult<void> Add(char c)
+        inline n_result<void> Add(char c)
         {
             Intern_Chars.At(Intern_Chars.Len - 1) = c;
-            Intern_RestoreNull().ntry();
+            Intern_RestoreNull().n_try();
             return {};
         }
         
-        inline nresult<void> Insert(uint64 index, char c)
+        inline n_result<void> Insert(uint64 index, char c)
         {
             if(index < Len())
             {
-                Intern_Chars.Insert(index, c).ntry();
+                Intern_Chars.Insert(index, c).n_try();
                 return {};
             }
             
-            ncheck_eq(index, Len());
-            Add(c).ntry();
+            n_check_eq(index, Len());
+            Add(c).n_try();
             return {};
         }
         
-        inline nresult<void> Remove(uint64 index)
+        inline n_result<void> Remove(uint64 index)
         {
-            Intern_Chars.Remove(index).ntry();
+            Intern_Chars.Remove(index).n_try();
             return {};
         }
         
-        inline nresult<void> InsertString(uint64 index, nview<const char> v)
+        inline n_result<void> InsertString(uint64 index, n_view<const char> v)
         {
             if(index < Len())
             {
-                Intern_Chars.InsertRange(index, v).ntry();
+                Intern_Chars.InsertRange(index, v).n_try();
                 return {};
             }
             
-            ncheck_eq(index, Len());
-            AppendString(v).ntry();
+            n_check_eq(index, Len());
+            AppendString(v).n_try();
             return {};
         }
         
-        inline nresult<void> RemoveRange(uint64 index, uint64 len)
+        inline n_result<void> RemoveRange(uint64 index, uint64 len)
         {
-            Intern_PruneNull().ntry();
-            ndefer { Intern_RestoreNull(); };
+            Intern_PruneNull().n_try();
+            n_defer { Intern_RestoreNull(); };
             Intern_Chars.RemoveRange(index, len);
             return {};
         }
         
-        inline uint64 FindString(nview<const char> v) const
+        inline uint64 FindString(n_view<const char> v) const
         {
             if(!Len() || !v)
                 return Len();
@@ -186,35 +186,35 @@ namespace Nstd
             return f ? (uint64)(f - Intern_Chars.Data) : Len();
         }
         
-        inline nresult<uint64> RemoveString(nview<const char> v)
+        inline n_result<uint64> RemoveString(n_view<const char> v)
         {
             uint64 f = FindString(v);
             if(f == Len())
                 return f;
-            RemoveRange(f, v.len).ntry();
+            RemoveRange(f, v.len).n_try();
             return f;
         }
         
-        inline nresult<uint64> RemoveCString(const char* cs)
+        inline n_result<uint64> RemoveCString(const char* cs)
         {
             uint64 f = FindCString(cs);
             if(f == Len())
                 return f;
-            RemoveRange(f, strlen(cs)).ntry();
+            RemoveRange(f, strlen(cs)).n_try();
             return f;
         }
         
-        inline nview<char> ToView()
+        inline n_view<char> ToView()
         {
-            nview<char> v = Intern_Chars.ToView();
+            n_view<char> v = Intern_Chars.ToView();
             if(v.len > 0)
                 v.len -= 1;
             return v;
         }
         
-        inline nview<const char> ToView() const
+        inline n_view<const char> ToView() const
         {
-            nview<const char> v = Intern_Chars.ToView();
+            n_view<const char> v = Intern_Chars.ToView();
             if(v.len > 0)
                 v.len -= 1;
             return v;
@@ -222,7 +222,7 @@ namespace Nstd
         
         //TODO
         #if 0
-        inline nresult<uint64> ReverseFindStringView(View<char> view)
+        inline n_result<uint64> ReverseFindStringView(View<char> view)
         {
             if(!Len() || !view.Data || !view.Len)
                 return Len();
@@ -235,16 +235,16 @@ namespace Nstd
             return Len();
         }
         
-        inline nresult<uint64> ReverseFindCString(const char* cs)
+        inline n_result<uint64> ReverseFindCString(const char* cs)
         {
             //const char* f = strstr(Intern_Chars.Data, cs);
             //return f ? (uint64)(f - Intern_Chars.Data) : Len();
         }
         #endif
         
-        inline nresult<void> Free()
+        inline n_result<void> Free()
         {
-            Intern_Chars.Free().ntry();
+            Intern_Chars.Free().n_try();
             return {};
         }
         

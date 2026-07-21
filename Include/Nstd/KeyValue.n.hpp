@@ -8,7 +8,7 @@ namespace Nstd
     template<typename T>
     struct KeyValue
     {
-        nview<const char> Key;
+        n_view<const char> Key;
         T Value;
     };
 }

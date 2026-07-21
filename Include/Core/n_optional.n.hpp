@@ -1,5 +1,5 @@
-#ifndef NCPP_NOPTIONAL_N_HPP
-#define NCPP_NOPTIONAL_N_HPP
+#ifndef NCPP_N_OPTIONAL_N_HPP
+#define NCPP_N_OPTIONAL_N_HPP
 
 /*
 Usage:
@@ -25,19 +25,18 @@ optionalInt.value_or(5): 5
 
 namespace ncpp
 {
-    struct noptional_nothing {};
-    
-    #define nnone ncpp::noptional_nothing()
+    struct optional_nothing {};
+    #define n_none ncpp::optional_nothing()
     
     template<typename T>
-    struct noptional
+    struct n_optional
     {
         T value;
         bool exists;
         
-        inline noptional() = default;
-        inline noptional(noptional_nothing n) { value = {}; exists = false; }
-        inline noptional(T val) { value = val; exists = true; }
+        inline n_optional() = default;
+        inline n_optional(optional_nothing n) { value = {}; exists = false; }
+        inline n_optional(T val) { value = val; exists = true; }
         
         inline operator bool() const { return exists; }
         inline bool operator!() const { return !exists; }
@@ -46,7 +45,7 @@ namespace ncpp
         inline T* operator->() { return &value; }
         inline T* operator->() const { return &value; }
         
-        inline noptional& operator=(const T& other)
+        inline n_optional& operator=(const T& other)
         {
             value = other;
             exists = true;
