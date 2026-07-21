@@ -230,7 +230,6 @@ Stack trace:
     #define NCPP_ERR_CB(msg, mlen, mcap, ts, tc, t)
 #endif
 
-#include "./n_stdint.n.hpp"
 #include <string.h>
 #include <assert.h>
 

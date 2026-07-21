@@ -4,7 +4,6 @@
 #include "./n_array.n.hpp"
 #include "./n_type.n.hpp"
 
-#include "./n_stdint.n.hpp"
 #include <string.h>
 
 namespace ncpp
