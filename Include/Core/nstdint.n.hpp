@@ -1,7 +1,10 @@
 #ifndef NCPP_NSTDINT_N_HPP
 #define NCPP_NSTDINT_N_HPP
 
+#include "./ntype.n.hpp"
+
 #include <stdint.h>
+#include <stddef.h>
 
 namespace ncpp
 {
@@ -30,8 +33,8 @@ namespace ncpp
     #define nuint64 ncpp::uint64
     #define nint64 ncpp::int64
     
-    using usize = unsigned size_t;
-    using ssize = signed size_t;
+    using usize = nto_unsigned(size_t);
+    using ssize = nto_signed(size_t);
 }
 
 

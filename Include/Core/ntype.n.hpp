@@ -54,17 +54,39 @@ namespace ncpp
     #define ntypeof(x) decltype(x)
     
     
-    template<class T> struct no_ref_s { typedef T type; };
-    template<class T> struct no_ref_s<T&> { typedef T type; };
-    template<class T> struct no_ref_s<T&&> { typedef T type; };
+    template<typename T> struct no_ref_s { typedef T type; };
+    template<typename T> struct no_ref_s<T&> { typedef T type; };
+    template<typename T> struct no_ref_s<T&&> { typedef T type; };
     
     #define nno_ref(t) ncpp::no_ref_s<t>::type
 
 
-    template<class T> struct no_const_s { typedef T type; };
-    template<class T> struct no_const_s<const T> { typedef T type; };
+    template<typename T> struct no_const_s { typedef T type; };
+    template<typename T> struct no_const_s<const T> { typedef T type; };
     
     #define nno_const(t) ncpp::no_const_s<t>::type
+    
+    
+    template<typename T, size_t>
+    struct to_signed_s {};
+    
+    template<typename T> struct to_signed_s<T, 1> { using type = int8_t; };
+    template<typename T> struct to_signed_s<T, 2> { using type = int16_t; };
+    template<typename T> struct to_signed_s<T, 4> { using type = int32_t; };
+    template<typename T> struct to_signed_s<T, 8> { using type = int64_t; };
+    
+    #define nto_signed(x) ncpp::to_signed_s<x, sizeof(x)>::type
+
+    
+    template<typename T, size_t>
+    struct to_unsigned_s {};
+    
+    template<typename T> struct to_unsigned_s<T, 1> { using type = uint8_t; };
+    template<typename T> struct to_unsigned_s<T, 2> { using type = uint16_t; };
+    template<typename T> struct to_unsigned_s<T, 4> { using type = uint32_t; };
+    template<typename T> struct to_unsigned_s<T, 8> { using type = uint64_t; };
+    
+    #define nto_unsigned(x) ncpp::to_unsigned_s<x, sizeof(x)>::type
 }
 
 #endif
