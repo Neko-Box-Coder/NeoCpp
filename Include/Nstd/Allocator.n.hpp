@@ -158,7 +158,7 @@ namespace Nstd
         inline void Destroy() 
         {
             INTERN_NSTD_DISPATCH(Destroy(), return);
-            memset(this, 0, sizeof(*this));
+            //memset(this, 0, sizeof(*this));
         }
         
         #undef INTERN_NSTD_DISPATCH
