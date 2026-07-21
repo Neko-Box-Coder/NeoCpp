@@ -19,7 +19,7 @@ namespace ncpp
         
         
         //template<typename U = T, n_enable_if(n_is_same(U, const U))>
-        inline n_view(const n_view<typename n_no_const(T)>& other) { data = other.data; len = other.len; }
+        inline n_view(const n_view<n_no_const(T)>& other) { data = other.data; len = other.len; }
         
         template<typename U = T, n_enable_if(n_is_same(U, const char))>
         inline n_view(const char* c) { data = c; len = strlen(c); }
