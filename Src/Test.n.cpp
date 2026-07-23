@@ -19,6 +19,7 @@ IncludePaths:
 #include "Nstd/Hashmap.n.hpp"
 #include "Nstd/String.n.hpp"
 
+
 #include <stdint.h>
 #include <stdio.h>
 
@@ -288,8 +289,6 @@ n_result<int> Main(int, char**)
         n_view<char> v = a;
         n_view<const char> v2 = v;
         //n_view<const char> v = "Abc";
-        
-        
         //(void)TTTT(v);
     }
     
