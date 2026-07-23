@@ -170,9 +170,7 @@ namespace Nstd
             if(!Len() || !v)
                 return Len();
 
-            for(char* p = strchr(Intern_Chars.Data, *v.data); 
-                *p != '\0'; 
-                p = strchr(++p, *v.data))
+            for(char* p = strchr(Intern_Chars.Data, *v.data); p; p = strchr(++p, *v.data))
             {
                 if(strncmp(p, v.data, v.len) == 0)
                     return (uint64)(p - Intern_Chars.Data);
@@ -227,7 +225,7 @@ namespace Nstd
             if(!Len() || !view.Data || !view.Len)
                 return Len();
 
-            for(char* p = strchr(Intern_Chars.Data, view.Data); p != '\0'; strchr(p, view.Data))
+            for(char* p = strchr(Intern_Chars.Data, view.Data); p; strchr(p, view.Data))
             {
                 if(strncmp(p, view.Data, view.Len) == 0)
                     return (uint64)(p - Intern_Chars.Data);
