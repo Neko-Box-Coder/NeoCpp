@@ -59,7 +59,7 @@ struct n_result
 };
 ```
 
-`trace n_trace()`: Create a trace at the invoked location
+`trace n_make_trace()`: Create a trace at the invoked location
 `(printf args) n_trace_fmt([const char* prefix], trace t, [const char* suffix])`: Creates a formated 
     string arguments with `prefix` and `suffix` prepended before and appended to the formatted 
     string which can be used with printf, like so: `printf( n_trace_fmt("    at ", myTrace, "\n") );`
@@ -264,8 +264,11 @@ namespace ncpp
         int line;
         
         #define n_make_trace() ncpp::n_trace { __func__, GetFileName(NCPP_PATH), __LINE__ }
-        #define n_trace_fmt(prefix, trace, suffix) \
-            prefix "%s:%d in %s()" suffix, trace.file, trace.line, trace.function
+        
+        #define n_trace_fmt_str() "%s:%d in %s()"
+        #define n_trace_fmt_args(trace) trace.file, trace.line, trace.function
+        
+        #define n_trace_printf_track() printf(n_trace_fmt_str() "\n", n_trace_fmt_args(n_make_trace()))
     };
     
     namespace
@@ -320,7 +323,13 @@ namespace ncpp
             {
                 usize ret_len = snprintf_(NULL, 0, "Error: \n    %s\nStack trace:\n", message);
                 for(int i = 0; i < traces_len; ++i)
-                    ret_len += snprintf_(NULL, 0, n_trace_fmt("    at ", traces[i], "\n"));
+                {
+                    ret_len += snprintf_(   NULL, 
+                                            0, 
+                                            "    at " n_trace_fmt_str() "\n", 
+                                            n_trace_fmt_args(traces[i]));
+                    
+                }
                 return ret_len;
             }
             else
@@ -333,9 +342,10 @@ namespace ncpp
                 {
                     if(wrote_len >= mem_len - 1)
                         break;
-                    wrote_len += snprintf_(  &mem[wrote_len], 
+                    wrote_len += snprintf_( &mem[wrote_len], 
                                             mem_len - wrote_len, 
-                                            n_trace_fmt("    at ", traces[i], "\n"));
+                                            "    at " n_trace_fmt_str() "\n",
+                                            n_trace_fmt_args(traces[i]));
                 }
                 return wrote_len;
             }
@@ -348,7 +358,7 @@ namespace ncpp
             > \
             ( \
                 &NCPP_ERR_BUFFER.message[NCPP_ERR_BUFFER.message_index], \
-                (uint16)snprintf_(&NCPP_ERR_BUFFER.message[NCPP_ERR_BUFFER.message_index], \
+                (uint16)snprintf_(  &NCPP_ERR_BUFFER.message[NCPP_ERR_BUFFER.message_index], \
                                     NCPP_ERR_BUFFER.msg_cap - NCPP_ERR_BUFFER.message_index, \
                                     __VA_ARGS__), \
                 NCPP_ERR_BUFFER.msg_cap - NCPP_ERR_BUFFER.message_index, \
@@ -358,7 +368,7 @@ namespace ncpp
             )
     };
     
-    template<uint16 MSG_CAP = 1024, uint16 TRACE_CAP = 128, uint8 ERROR_CAP = 8>
+    template<uint16 MSG_CAP = 128, uint16 TRACE_CAP = 16, uint8 ERROR_CAP = 1>
     struct n_error_buffer
     {
         uint16 message_index;
@@ -372,6 +382,7 @@ namespace ncpp
         static constexpr uint16 trace_cap = TRACE_CAP;
         static constexpr uint8 error_cap = ERROR_CAP;
     };
+    static_assert(n_is_simple(n_error_buffer<>));
 
     namespace
     {
