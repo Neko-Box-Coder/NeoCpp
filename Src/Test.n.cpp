@@ -4,6 +4,7 @@ OverrideCompileFlags:
     DefaultPlatform:
         "g++":
             Remove: "-std=c++17"
+            # Append: "-std=c++11 -Wno-sign-compare -E -P"
             Append: "-std=c++11 -Wno-sign-compare"
 IncludePaths:
 -   "../Include"
@@ -11,6 +12,9 @@ IncludePaths:
 
 
 #include "ncpp.n.hpp"
+
+#include "Nstd/AllocatorTest.n.hpp"
+
 
 #include "Nstd/TaggedUnion.n.hpp"
 #include "Nstd/Allocator.n.hpp"
@@ -68,6 +72,13 @@ n_result<int> TestCheckFmt(int v)
 
 n_result<int> Main(int, char**)
 {
+    #if 1
+        Nstd::BenchmarkAllocatorsMain().n_try();
+        if(true)
+            return 0;
+    #endif
+    
+    
     //Nstd/TaggedUnion.n.hpp
     {
         Nstd::TaggedUnion<int, signed char, uint8> t = t.Init<uint8>(9);

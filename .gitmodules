@@ -10,3 +10,6 @@
 [submodule "uthash"]
 	path = Include/Nstd/External/uthash
 	url = https://github.com/troydhanson/uthash.git
+[submodule "msutimer"]
+	path = Include/Nstd/External/msutimer
+	url = https://github.com/Neko-Box-Coder/msutimer.git
