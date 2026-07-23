@@ -17,13 +17,12 @@ namespace ncpp
         inline n_view() = default;
         inline n_view(T* d, uint64 l) { data = d; len = l; }
         
-        
-        //template<typename U = T, n_enable_if(n_is_same(U, const U))>
-        inline n_view(const n_view<n_no_const(T)>& other) { data = other.data; len = other.len; }
+        template<typename T2 = T, typename T3 = n_no_const(T)> //NOTE: Hack to be trivial, same as below
+        inline n_view(const n_view<T3>& other) { data = other.data; len = other.len; }
+        //inline n_view(const n_view<n_no_const(T)>& other) { data = other.data; len = other.len; }
         
         template<typename U = T, n_enable_if(n_is_same(U, const char))>
         inline n_view(const char* c) { data = c; len = strlen(c); }
-        
         inline n_view(char* c) { data = c; len = strlen(c); }
         
         inline operator bool() const { return data && len; }
@@ -31,6 +30,8 @@ namespace ncpp
     };
     
     #define n_array_to_view(arr) ncpp::n_view<n_no_ref( n_typeof(arr[0]) )> { arr, n_array_cap(arr) }
+    
+    static_assert(n_is_simple(n_view<char>), "");
 }
 
 #endif
