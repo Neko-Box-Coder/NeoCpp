@@ -40,8 +40,8 @@ namespace Nstd
 }
 
 #define BENCH_BASE_LINE     0
-#define BENCH_SAMPLE        10000
-#define BENCH_FREE_N        1000
+#define BENCH_SAMPLE        1000000
+#define BENCH_FREE_N        500000
 #define BENCH_ALLOC_2       1
 #define BENCH_ALLOC_PROB    80,90,95,99 //int, BVec3, BVec3D, BFatNode, 1KB
 
@@ -271,7 +271,13 @@ namespace Nstd
     
     inline n_result<void> BenchmarkAllocatorsMain()
     {
-        return BenchmarkAllocators();
+        for(int i = 0; i < 5; ++i)
+        {
+            BenchmarkAllocators().n_try();
+            printf("\n--------------------------\n");
+        }
+        
+        return {};
     }
 }
 
