@@ -1,11 +1,23 @@
 /* runcpp2
 
+RequiredProfiles:
+    DefaultPlatform: ["g++"]
+
 OverrideCompileFlags:
     DefaultPlatform:
         "g++":
+        # "g++14":
             Remove: "-std=c++17"
             # Append: "-std=c++11 -Wno-sign-compare -E -P"
+            # Append: "-std=c++11 -Wno-sign-compare -pg -g"
             Append: "-std=c++11 -Wno-sign-compare"
+
+# OverrideLinkFlags:
+#     DefaultPlatform:
+#         "g++":
+#         # "g++14":
+#             Append: "-pg"
+
 IncludePaths:
 -   "../Include"
 */
@@ -17,7 +29,8 @@ IncludePaths:
 
 
 #include "Nstd/TaggedUnion.n.hpp"
-#include "Nstd/Allocator.n.hpp"
+#include "Nstd/HeapAllocatorPool.n.hpp"
+#include "Nstd/AllocatorPool.n.hpp"
 #include "Nstd/List.n.hpp"
 #include "Nstd/LinkedList.n.hpp"
 #include "Nstd/Hashmap.n.hpp"
@@ -78,6 +91,10 @@ n_result<int> Main(int, char**)
             return 0;
     #endif
     
+    Nstd::HeapAllocatorPool h = {};
+    h.Init(32);
+    Nstd::AllocatorPool alloc = h.MakeAllocatorPool();
+    n_defer { alloc.Destroy(); };
     
     //Nstd/TaggedUnion.n.hpp
     {
@@ -103,18 +120,15 @@ n_result<int> Main(int, char**)
     
     //Nstd/Allocator.n.hpp
     {
-        Nstd::Allocator a = a.Init<int64_t, Nstd::HeapAllocator>(32);   //Reserve 32 int64_t
-        n_defer { a.Destroy(); };
-        
-        int64_t* ints = a.Malloc<int64_t>(16);                          //Allocate 16 int64_t
+        int64_t* ints = alloc.Malloc<int64_t>(16); //Allocate 16 int64_t
         (void)ints;
         //...
-        ints = a.Realloc<int64_t>(ints, 64);                            //Expands to 64 int64_t
-        char* chars = a.Malloc<char>(16);
+        ints = alloc.Realloc<int64_t>(ints, 64); //Expands to 64 int64_t
+        char* chars = alloc.Malloc<char>(16);
         (void)chars;
-        a.Free(ints);
-        a.FreeAll();
-        chars = a.Malloc<char>(4);
+        alloc.Free(ints);
+        alloc.FreeAll();
+        chars = alloc.Malloc<char>(4);
     }
     
     //Core/n_move.n.hpp
@@ -180,9 +194,6 @@ n_result<int> Main(int, char**)
     
     //Nstd/List.n.hpp
     {
-        Nstd::Allocator alloc = alloc.Init<int, Nstd::HeapAllocator>(32);
-        n_defer { alloc.Destroy(); };
-        
         Nstd::List<int> list = list.Init(n_ref alloc, 4);    //Reserve 4 ints
         list.Add(1);
         list.Add(2);
@@ -214,9 +225,6 @@ n_result<int> Main(int, char**)
     
     //Nstd/Hashmap.n.hpp
     {
-        Nstd::Allocator alloc = alloc.Init<int, Nstd::HeapAllocator>(32);
-        n_defer { alloc.Destroy(); };
-        
         Nstd::Hashmap<int> hmap = 
             hmap.InitValues(alloc, 
                             Nstd::KeyValue<int> { "Test-2", -2 },
@@ -259,8 +267,6 @@ n_result<int> Main(int, char**)
     
     //Nstd/String.n.hpp
     {
-        Nstd::Allocator alloc = alloc.Init<char, Nstd::HeapAllocator>(32);
-        n_defer { alloc.Destroy(); };
         Nstd::String s = s.InitString(alloc, "Test");
         printf("String: \"%s\" with len %" PRIu64 "\n", s.Data(), s.Len());
         
@@ -302,7 +308,6 @@ n_result<int> Main(int, char**)
         //n_view<const char> v = "Abc";
         //(void)TTTT(v);
     }
-    
     
     return 0;
 }

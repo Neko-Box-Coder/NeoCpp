@@ -38,7 +38,7 @@ list.At(2): 3
 
 #include "ncpp.n.hpp"
 
-#include "./Allocator.n.hpp"
+#include "./AllocatorPool.n.hpp"
 #include "./External/MacroPowerToys/ArgsCount.h"
 
 #include <stdarg.h>
@@ -48,13 +48,13 @@ namespace Nstd
     template<typename T, n_enable_if(n_is_simple(T))>
     struct List
     {
-        Allocator* Alloc;
+        AllocatorPool* Alloc;
         T Dummy;
         T* Data;
         uint64 Len;
         uint64 Cap;
         
-        inline List Init(n_ref Allocator& alloc, uint64 reserveSize)
+        inline List Init(n_ref AllocatorPool& alloc, uint64 reserveSize)
         {
             List retList;
             retList.Alloc = &alloc;
@@ -82,7 +82,7 @@ namespace Nstd
         }
         
         template<typename... Ts>
-        inline List InitValues(n_ref Allocator& alloc, Ts... values)
+        inline List InitValues(n_ref AllocatorPool& alloc, Ts... values)
         {
             List l = Init(alloc, sizeof...(values));
             if(!l.Cap)

@@ -40,16 +40,20 @@ namespace Nstd
 }
 
 #define BENCH_BASE_LINE     0
-#define BENCH_SAMPLE        1000000
-#define BENCH_FREE_N        500000
-#define BENCH_ALLOC_2       1
+#define BENCH_RAW_MEM       0
+#define BENCH_SAMPLE_N      100000
+#define BENCH_ACCESS_N      50000
+#define BENCH_FREE_N        30000
+#define BENCH_ALLOC_IT      3
 #define BENCH_ALLOC_PROB    80,90,95,99 //int, BVec3, BVec3D, BFatNode, 1KB
 
 
 #define NSTD_ALLOC_MALLOC(sz) BenchMalloc(sz)
 #define NSTD_ALLOC_FREE(p) BenchFree(p)
 #define NSTD_ALLOC_REALLOC(p, sz) BenchRealloc(p, sz)
-#include "./Allocator.n.hpp"
+#include "./HeapAllocatorPool.n.hpp"
+#include "./PageAllocator.n.hpp"
+#include "./AllocatorPool.n.hpp"
 
 #include "./External/msutimer/msutimer.h"
 #include "./External/msutimer/msutimer.c"
@@ -85,7 +89,7 @@ namespace Nstd
     };
     
     
-    inline void PerformAllocations( n_ref Nstd::Allocator& alloc, 
+    inline uint32 PerformAllocations( n_ref Nstd::AllocatorPool& alloc, 
                                     n_view<void*> sv, 
                                     n_ref uint64& minMem,
                                     n_view<uint32> szv,
@@ -99,52 +103,142 @@ namespace Nstd
             if(r < allocProbs[0])
             {
                 #if BENCH_BASE_LINE
-                    sv.data[i] = BenchMalloc(sizeof(int));
+                    #if BENCH_RAW_MEM
+                        sv.data[i] = malloc(sizeof(int));
+                    #else
+                        sv.data[i] = BenchMalloc(sizeof(int));
+                    #endif
                 #else
                     sv.data[i] = alloc.Malloc<int>(1);
                 #endif
+                
+                if(!sv.data[i])
+                    return i;
+                
                 minMem += sizeof(int);
                 szv.data[i] = sizeof(int);
             }
             else if(r < allocProbs[1])
             {
                 #if BENCH_BASE_LINE
-                    sv.data[i] = BenchMalloc(sizeof(BVec3));
+                    #if BENCH_RAW_MEM
+                        sv.data[i] = malloc(sizeof(BVec3));
+                    #else
+                        sv.data[i] = BenchMalloc(sizeof(BVec3));
+                    #endif
                 #else
                     sv.data[i] = alloc.Malloc<BVec3>(1);
                 #endif
+                
+                if(!sv.data[i])
+                    return i;
+                
                 minMem += sizeof(BVec3);
                 szv.data[i] = sizeof(BVec3);
             }
             else if(r < allocProbs[2])
             {
                 #if BENCH_BASE_LINE
-                    sv.data[i] = BenchMalloc(sizeof(BVec3D));
+                    #if BENCH_RAW_MEM
+                        sv.data[i] = malloc(sizeof(BVec3D));
+                    #else
+                        sv.data[i] = BenchMalloc(sizeof(BVec3D));
+                    #endif
                 #else
                     sv.data[i] = alloc.Malloc<BVec3D>(1);
                 #endif
+                
+                if(!sv.data[i])
+                    return i;
+                
                 minMem += sizeof(BVec3D);
                 szv.data[i] = sizeof(BVec3D);
             }
             else if(r < allocProbs[3])
             {
                 #if BENCH_BASE_LINE
-                    sv.data[i] = BenchMalloc(sizeof(BFatNode));
+                    #if BENCH_RAW_MEM
+                        sv.data[i] = malloc(sizeof(BFatNode));
+                    #else
+                        sv.data[i] = BenchMalloc(sizeof(BFatNode));
+                    #endif
                 #else
                     sv.data[i] = alloc.Malloc<BFatNode>(1);
                 #endif
+                
+                if(!sv.data[i])
+                    return i;
+                
                 minMem += sizeof(BFatNode);
                 szv.data[i] = sizeof(BFatNode);
             }
             else
             {
                 #if BENCH_BASE_LINE
-                    sv.data[i] = BenchMalloc(1024);
+                    #if BENCH_RAW_MEM
+                        sv.data[i] = malloc(1024);
+                    #else
+                        sv.data[i] = BenchMalloc(1024);
+                    #endif
                 #else
                     sv.data[i] = alloc.Malloc<char>(1024); //1KB
                 #endif
+                
+                if(!sv.data[i])
+                    return i;
+                
                 minMem += 1024;
                 szv.data[i] = 1024;
+            }
+        }
+    
+        return to;
+    }
+    
+    inline void Access(uint32 allocFrom, uint32 allocTo, n_view<void*> sv)
+    {
+        int range = allocTo - allocFrom;
+        for(int i = 0; i < BENCH_ACCESS_N; ++i)
+        {
+            static_assert(RAND_MAX > BENCH_SAMPLE_N, "");
+            int f = allocFrom + rand() % range;
+            if(sv.data[f])
+            {
+                if(f > 0 && sv.data[f - 1])
+                {
+                    int* cur = (int*)sv.data[f];
+                    int* prev = (int*)sv.data[f - 1];
+                    *prev += *cur;
+                }
+            }
+        }
+    }
+    
+    inline void Free(   n_ref Nstd::AllocatorPool& alloc, 
+                        uint32 allocFrom, 
+                        uint32 allocTo, 
+                        n_view<void*> sv, 
+                        n_view<uint32> szv,
+                        n_ref uint64& minMem)
+    {
+        int range = allocTo - allocFrom;
+        for(int i = 0; i < BENCH_ACCESS_N; ++i)
+        {
+            static_assert(RAND_MAX > BENCH_SAMPLE_N, "");
+            int f = allocFrom + rand() % range;
+            if(sv.data[f])
+            {
+                #if BENCH_BASE_LINE
+                    #if BENCH_RAW_MEM
+                        free(sv.data[f]);
+                    #else
+                        BenchFree(sv.data[f]);
+                    #endif
+                #else
+                    alloc.Free(sv.data[f]);
+                #endif
+                sv.data[f] = NULL;
+                minMem -= szv.data[f];
             }
         }
     }
@@ -153,15 +247,15 @@ namespace Nstd
     {
         MemUsed = 0;
         
-        void** stores = (void**)malloc(sizeof(void*) * BENCH_SAMPLE);
+        void** stores = (void**)calloc(BENCH_SAMPLE_N * BENCH_ALLOC_IT, sizeof(void*));
         n_check_true(stores);
         n_defer { free(stores); };
-        n_view<void*> sv = {stores, BENCH_SAMPLE};
+        n_view<void*> sv = {stores, BENCH_SAMPLE_N * BENCH_ALLOC_IT};
         
-        uint32* sizes = (uint32*)malloc(sizeof(uint32) * BENCH_SAMPLE);
+        uint32* sizes = (uint32*)malloc(sizeof(uint32) * BENCH_SAMPLE_N * BENCH_ALLOC_IT);
         n_check_true(sizes);
         n_defer { free(sizes); };
-        n_view<uint32> szv = {sizes, BENCH_SAMPLE};
+        n_view<uint32> szv = {sizes, BENCH_SAMPLE_N * BENCH_ALLOC_IT};
         
         MSUTimer* timer = msutimer_new();
         n_check_true(timer);
@@ -172,70 +266,66 @@ namespace Nstd
         //Initialization
         double initReserveStart = msutimer_gettime(timer);
         #if BENCH_BASE_LINE
-            Nstd::Allocator alloc = {};
+            Nstd::AllocatorPool alloc = {};
         #else
-            Nstd::Allocator alloc = alloc.Init<int, Nstd::HeapAllocator>(BENCH_SAMPLE);
+            #if 0
+                Nstd::HeapAllocatorPool h = {};
+                h.Init(BENCH_SAMPLE_N);
+                Nstd::AllocatorPool alloc = h.MakeAllocatorPool();
+            #endif
+            
+            #if 1
+                Nstd::PageAllocator<64> p = {};
+                p.Init(2 MB).n_try();
+                Nstd::AllocatorPool alloc = p.MakeAllocatorPool();
+            #endif
         #endif
         double initReserveEnd = msutimer_gettime(timer);
         
         
-        //First allocations
-        uint32 allocFrom = 0;
-        uint32 allocTo = BENCH_SAMPLE;
-        #if BENCH_ALLOC_2
-            allocTo /= 2;
-        #endif
-        double allocStart = msutimer_gettime(timer);
-        PerformAllocations(n_ref alloc, sv, minMem, szv, allocFrom, allocTo);
-        double allocEnd = msutimer_gettime(timer);
-        
-        printf("Allocations done\n");
-        printf("Used %" PRIu64 " bytes total\n", MemUsed);
-        printf("Data %" PRIu64 " bytes\n", minMem);
-        printf("\n");
-        
-        //Free
-        int range = allocTo - allocFrom;
-        double freeStart = msutimer_gettime(timer);
-        for(int i = 0; i < BENCH_FREE_N; ++i)
+        for(int it = 0; it < BENCH_ALLOC_IT; ++it)
         {
-            static_assert(RAND_MAX > BENCH_SAMPLE, "");
-            int f = allocFrom + rand() % range;
-            if(sv.data[f])
-            {
-                #if BENCH_BASE_LINE
-                    BenchFree(sv.data[f]);
-                #else
-                    alloc.Free(sv.data[f]);
-                #endif
-                sv.data[f] = NULL;
-                minMem -= szv.data[f];
-            }
-        }
-        double freeEnd = msutimer_gettime(timer);
-        
-        printf("Free done\n");
-        printf("Used %" PRIu64 " bytes of memory\n", MemUsed);
-        printf("Minimum memory %" PRIu64 " bytes\n", minMem);
-        printf("\n");
-        
-        
-        
-        //Second allocations
-        #if BENCH_ALLOC_2
-            allocFrom = allocTo;
-            allocTo = BENCH_SAMPLE;
+            uint32 allocFrom = 0;
+            uint32 allocTo = BENCH_SAMPLE_N / BENCH_ALLOC_IT * (it + 1);
+            double allocStart = msutimer_gettime(timer);
+            uint32 oom = PerformAllocations(n_ref alloc, sv, n_ref minMem, szv, allocFrom, allocTo);
+            double allocEnd = msutimer_gettime(timer);
             
-            double alloc2Start = msutimer_gettime(timer);
-            PerformAllocations(n_ref alloc, sv, minMem, szv, allocFrom, allocTo);
-            double alloc2End = msutimer_gettime(timer);
-        
             printf("Allocations done\n");
+            if(oom != allocTo)
+            {
+                printf( "OOM at %" PRIu32 ", from %" PRIu32 " to %" PRIu32 "\n", 
+                        oom, 
+                        allocFrom, 
+                        allocTo);
+            }
             printf("Used %" PRIu64 " bytes total\n", MemUsed);
             printf("Data %" PRIu64 " bytes\n", minMem);
             printf("\n");
-        #endif
-        
+            
+            double accessStart = msutimer_gettime(timer);
+            Access(allocFrom,  allocTo, sv);
+            double accessEnd = msutimer_gettime(timer);
+            
+            //TODO: Realloc
+            
+            //Free
+            double freeStart = msutimer_gettime(timer);
+            Free(n_ref alloc, allocFrom, allocTo, sv, szv, n_ref minMem);
+            double freeEnd = msutimer_gettime(timer);
+            
+            printf("Free done\n");
+            printf("Used %" PRIu64 " bytes total\n", MemUsed);
+            printf("Data %" PRIu64 " bytes\n", minMem);
+            printf("\n");
+            
+            printf("Allocations:    %.3lf usecs\n", allocEnd - allocStart);
+            printf("Access:         %.3lf usecs\n", accessEnd - accessStart);
+            printf("Frees:          %.3lf usecs\n", freeEnd - freeStart);
+            
+            if(oom != allocTo)
+                break;
+        }
         
         //Free all
         double freeAllStart = msutimer_gettime(timer);
@@ -245,7 +335,6 @@ namespace Nstd
         double freeAllEnd = msutimer_gettime(timer);
         
         
-        
         //Destroy
         double destroyStart = msutimer_gettime(timer);
         #if !BENCH_BASE_LINE
@@ -253,17 +342,8 @@ namespace Nstd
         #endif
         double destroyEnd = msutimer_gettime(timer);
         
-        
-        
         //Final
         printf("Init Reserve:   %.3lf usecs\n", initReserveEnd - initReserveStart);
-        printf("Allocations:    %.3lf usecs\n", allocEnd - allocStart);
-        
-        #if BENCH_ALLOC_2
-        printf("Allocations2:   %.3lf usecs\n", alloc2End - alloc2Start);
-        #endif
-        
-        printf("Frees:          %.3lf usecs\n", freeEnd - freeStart);
         printf("Free All:       %.3lf usecs\n", freeAllEnd - freeAllStart);
         printf("Destroy:        %.3lf usecs\n", destroyEnd - destroyStart);
         return {};
@@ -271,7 +351,7 @@ namespace Nstd
     
     inline n_result<void> BenchmarkAllocatorsMain()
     {
-        for(int i = 0; i < 5; ++i)
+        for(int i = 0; i < 3; ++i)
         {
             BenchmarkAllocators().n_try();
             printf("\n--------------------------\n");

@@ -3,7 +3,7 @@
 
 #include "ncpp.n.hpp"
 
-#include "./Allocator.n.hpp"
+#include "./AllocatorPool.n.hpp"
 #include "./External/MacroPowerToys/ArgsCount.h"
 #include <stdarg.h>
 
@@ -21,13 +21,13 @@ namespace Nstd
     template<typename T, n_enable_if(n_is_simple(T))>
     struct LinkedList
     {
-        Allocator* Alloc;
+        AllocatorPool* Alloc;
         ListNode<T>* Head;
         ListNode<T>* Tail;
         uint64 Len;
         
         
-        inline LinkedList Init(n_ref Allocator& alloc)
+        inline LinkedList Init(n_ref AllocatorPool& alloc)
         {
             LinkedList retList;
             retList.Alloc = &alloc;
@@ -102,7 +102,7 @@ namespace Nstd
         }
         
         template<typename... Ts>
-        inline LinkedList InitValues(n_ref Allocator& alloc, Ts... values)
+        inline LinkedList InitValues(n_ref AllocatorPool& alloc, Ts... values)
         {
             LinkedList l = Init(alloc);
             l.AppendValues(l.Tail, values...);

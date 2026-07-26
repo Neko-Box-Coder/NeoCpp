@@ -8,14 +8,14 @@ struct String
 {
     List<char> Intern_Chars;
     
-    inline String Init(n_ref Allocator& alloc, uint64 reserveSize);
+    inline String Init(n_ref AllocatorPool& alloc, uint64 reserveSize);
     inline char* Data();
     inline const char* Data() const;
     inline uint64 Len() const;
     inline n_result<void> AppendCString(const char* cs);
     inline n_result<void> AppendStringView(View<char> v);
-    inline String InitCString(n_ref Allocator& alloc, const char* cs);
-    inline String InitStringView(n_ref Allocator& alloc, View<char> v);
+    inline String InitCString(n_ref AllocatorPool& alloc, const char* cs);
+    inline String InitStringView(n_ref AllocatorPool& alloc, View<char> v);
     inline char& At(uint64 index);
     inline char At(uint64 index) const;
     inline n_result<void> Reserve(uint64 size);
@@ -46,7 +46,7 @@ namespace Nstd
     {
         List<char> Intern_Chars;
         
-        inline String Init(n_ref Allocator& alloc, uint64 reserveSize)
+        inline String Init(n_ref AllocatorPool& alloc, uint64 reserveSize)
         {
             Intern_Chars = Intern_Chars.Init(alloc, reserveSize + 1);
             Intern_Chars.Add('\0');
@@ -88,7 +88,7 @@ namespace Nstd
             return {};
         }
         
-        inline String InitString(n_ref Allocator& alloc, n_view<const char> v)
+        inline String InitString(n_ref AllocatorPool& alloc, n_view<const char> v)
         {
             String s = s.Init(alloc, v.len);
             s.AppendString(v);

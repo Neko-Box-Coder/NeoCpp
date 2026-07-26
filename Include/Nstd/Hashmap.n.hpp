@@ -2,7 +2,7 @@
 #define NSTD_HASHMAP_N_HPP
 
 #include "ncpp.n.hpp"
-#include "./Allocator.n.hpp"
+#include "./AllocatorPool.n.hpp"
 #include "./KeyValue.n.hpp"
 
 #define HASH_NONFATAL_OOM 1
@@ -32,10 +32,10 @@ namespace Nstd
     template<typename T>
     struct Hashmap
     {
-        Allocator* Alloc;
+        AllocatorPool* Alloc;
         HashNode<T>* Nodes;
     
-        inline Hashmap<T> Init(n_ref Allocator& alloc) 
+        inline Hashmap<T> Init(n_ref AllocatorPool& alloc) 
         { 
             Hashmap<T> h;
             h.Alloc = &alloc;
@@ -71,7 +71,7 @@ namespace Nstd
         }
         
         template<typename... Ts>
-        inline Hashmap InitValues(n_ref Allocator& alloc, Ts... values)
+        inline Hashmap InitValues(n_ref AllocatorPool& alloc, Ts... values)
         {
             Hashmap h = Init(alloc);
             h.AddValues(values...);
