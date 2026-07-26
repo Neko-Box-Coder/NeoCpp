@@ -121,7 +121,10 @@ namespace Nstd
                         if(i == s)
                             bitStartPos = index % 8;
                         if(i == e - 1)
+                        {
                             bitEndPos = (index + range) % 8;
+                            bitEndPos = bitEndPos == 0 ? 8 : bitEndPos;
+                        }
                         for(int j = bitStartPos; j < bitEndPos; ++j)
                             ByteViews.data[i] |= 1 << j;
                     }
@@ -143,7 +146,10 @@ namespace Nstd
                         if(i == s)
                             bitStartPos = index % 8;
                         if(i == e - 1)
+                        {
                             bitEndPos = (index + range) % 8;
+                            bitEndPos = bitEndPos == 0 ? 8 : bitEndPos;
+                        }
                         for(int j = bitStartPos; j < bitEndPos; ++j)
                             ByteViews.data[i] &= ~(1 << j);
                     }
