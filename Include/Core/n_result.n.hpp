@@ -493,7 +493,7 @@ namespace ncpp
             if(ncpp::global_error_info) \
             { \
                 ncpp::global_error_info->append_trace(n_make_trace()); \
-                n_error_info& err = *ncpp::global_error_info; \
+                n_error_info& err = *ncpp::global_error_info; (void)err; \
                 ncpp::global_error_info = NULL; \
                 global_run_error_defer = true; \
                 __VA_ARGS__; \
