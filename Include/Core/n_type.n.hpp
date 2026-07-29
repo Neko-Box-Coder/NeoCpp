@@ -116,6 +116,9 @@ namespace ncpp
     #define n_uint64 ncpp::uint64
     #define n_int64 ncpp::int64
     
+    using uint = unsigned int;
+    #define n_uint ncpp::uint;
+    
     using usize = n_to_unsigned(size_t);
     using ssize = n_to_signed(size_t);
     #define n_usize ncpp::usize

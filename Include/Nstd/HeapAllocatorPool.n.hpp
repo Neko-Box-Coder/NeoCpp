@@ -20,6 +20,23 @@ namespace Nstd
             Cap = allocCount;
         }
         
+        static inline uint32 GetKey(void* ptr, uint32 cap)
+        {
+            uint halfBits = sizeof(uintptr_t) / 8 / 2;
+            uintptr_t k = (uintptr_t)ptr;
+            uintptr_t s1 = k;
+            uintptr_t s2 = k;
+            do
+            {
+                s1 >>= halfBits;
+                s2 <<= halfBits;
+                k = k ^ s1 ^ s2;
+                halfBits /= 2;
+            }
+            while(halfBits > 0);
+            return (uint32)(k % cap);
+        }
+        
         inline bool Rehash()
         {
             void** newLookup = (void**)Intern_Calloc(Cap * 2 * sizeof(void*));
@@ -30,7 +47,7 @@ namespace Nstd
             {
                 if(MemLookup[i])
                 {
-                    uint32 key = (uintptr_t)MemLookup[i] % (Cap * 2);
+                    uint32 key = GetKey(MemLookup[i], Cap * 2);
                     while(newLookup[key])
                     {
                         ++key;
@@ -47,7 +64,7 @@ namespace Nstd
         
         inline uint32 Intern_NullKey(void* ptr)
         {
-            uint32 key = (uintptr_t)ptr % Cap;
+            uint32 key = GetKey(ptr, Cap);
             while(MemLookup[key])
             {
                 ++key;
@@ -58,16 +75,17 @@ namespace Nstd
         
         inline uint32 Intern_GetKey(void* ptr)
         {
-            uint32 key = (uintptr_t)ptr % Cap;
+            uint32 key = GetKey(ptr, Cap);
             uint32 oriKey = key;
-            while(MemLookup[key] != ptr && key != oriKey)
+             do
             {
-                ++key;
-                key %= Cap;
-            }
-            if(MemLookup[key] != ptr && key == oriKey)
-                return Cap;
-            return key;
+                if(MemLookup[key] == ptr) 
+                    return key;
+                ++key; 
+                if(key >= Cap) 
+                    key = 0;
+            } while(key != oriKey);
+            return Cap;
         }
         
         static void ReserveAhead(void*, uint64) {}
