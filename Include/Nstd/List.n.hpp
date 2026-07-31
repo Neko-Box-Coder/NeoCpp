@@ -127,6 +127,9 @@ namespace Nstd
         
         inline n_result<void> ReserveAhead(uint64 size)
         {
+            if(Cap >= size)
+                return {};
+            
             uint64 reserveLen;
             if(UINT64_MAX / 2 < Cap)
                 reserveLen = UINT64_MAX;
