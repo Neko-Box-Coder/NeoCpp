@@ -278,7 +278,7 @@ namespace ncpp
     
     struct n_error_info
     {
-        const char* message;
+        char* message;
         uint16 msg_len;
         uint16 msg_cap;
         n_trace* traces;
@@ -293,7 +293,7 @@ namespace ncpp
         }
         
         template<uint16 TARGET_MSG_CAP>
-        inline static n_error_info create(  const char* msg, 
+        inline static n_error_info create(  char* msg, 
                                             uint16 mlen, 
                                             uint16 max_mcap,
                                             n_trace* ts, 
@@ -427,6 +427,7 @@ namespace ncpp
         n_error_info* err;
         
         inline n_result() = default;
+        inline n_result(n_error_info& e) { err = &e; }
         inline n_result(T val) { value = val; err = NULL; }
         inline n_result(T val, n_error_info* e) { value = val; err = e; }
         
@@ -468,6 +469,10 @@ namespace ncpp
     {
         char c;
         n_error_info* err;
+        
+        inline n_result() = default;
+        inline n_result(char, n_error_info* e) { err = e; }
+        inline n_result(n_error_info& e) { err = &e; }
         
         inline void value_or_default()
         {
