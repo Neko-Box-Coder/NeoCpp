@@ -10,7 +10,14 @@
 
 namespace Nstd
 {
-    template<usize BLOCK_SIZE = 16, bool SINGLE = false>
+    struct FreeNode
+    {
+        uint16 Next;
+        uint16 Prev;
+        uint16 Blocks;
+    };
+    
+    template<usize BLOCK_SIZE = 16>
     struct PageAllocator
     {
         static constexpr usize PAGE_SIZE = BLOCK_SIZE * 8 * BLOCK_SIZE;
@@ -18,9 +25,11 @@ namespace Nstd
         uint8* Blocks;
         BitView Control;
         BitView Key;
+        uint16 FreeNodeHead;
         uint16 BlocksCount;
         uint8 PageCount;
         bool Backing;
+        
         
         inline n_result<void> Intern_Init(TaggedUnion<n_view<char>, usize> arg)
         {
@@ -56,20 +65,15 @@ namespace Nstd
             
             memset(Blocks, 0, BLOCK_SIZE * PageCount * 2);
             Control = Control.Init({ Blocks, BLOCK_SIZE * PageCount });
-            if(!SINGLE)
-            {
-                Key = Key.Init({ Blocks + BLOCK_SIZE * PageCount, BLOCK_SIZE * PageCount });
-                Control.SetBitsAt<1>(0, PageCount * 2).n_try();
-                Key.SetBit<1>(0);
-                BlocksCount = PageCount * 2;
-            }
-            else
-            {
-                Control.SetBitsAt<1>(0, PageCount).n_try();
-                BlocksCount = PageCount;
-            }
-            
+            Key = Key.Init({ Blocks + BLOCK_SIZE * PageCount, BLOCK_SIZE * PageCount });
+            Control.SetBitsAt<1>(0, PageCount * 2).n_try();
+            Key.SetBit<1>(0);
+            BlocksCount = PageCount * 2;
             Backing = arg.Is<n_view<char>>();
+            
+            FreeNodeHead = PageCount * 2;
+            FreeNode freeNode = { PageCount * 2, PageCount * 2, Control.Len() - PageCount * 2 };
+            memcpy(&Blocks[FreeNodeHead], &freeNode, sizeof(freeNode));
             return {};
         }
         
@@ -87,75 +91,119 @@ namespace Nstd
         
         inline uint16 FitBlocks(uint64 fitByteSize)
         {
-            if(SINGLE)
-            {
-                if(fitByteSize > BLOCK_SIZE)
-                    return Control.Len();
-                
-                for(int i = PageCount; i < Control.Len(); ++i)
-                {
-                    if(!Control.GetBit(i))
-                        return i;
-                }
-                
-                return Control.Len();
-            }
-            
-            const uint16 fitBlockCount = (fitByteSize + (BLOCK_SIZE - 1)) / BLOCK_SIZE;
-            if(Control.Len() - PageCount * 2 < fitBlockCount)
+            const uint16 fitBlocksCount = (fitByteSize + (BLOCK_SIZE - 1)) / BLOCK_SIZE;
+            if(Control.Len() - PageCount * 2 < fitBlocksCount)
                 return Control.Len();
             
-            usize curIndex = PageCount * 2;
-            bool curBit = Control.GetBit(curIndex);
+            if(FreeNodeHead == Control.Len())
+                return Control.Len();
+            
+            n_assert(FreeNodeHead >= PageCount * 2);
+            
+            FreeNode curNode;
+            uint16 curIndex = FreeNodeHead;
             do
             {
-                n_result<usize> f = Control.GetBitsUntilFlipped(curIndex);
-                n_assert(!f.err);
-                n_assert(f.value <= Control.Len());
-                if(!curBit)
-                {
-                    if(f.value - curIndex >= fitBlockCount)
-                        return curIndex;
-                }
-                curIndex = f.value;
-                n_assert(curIndex == Control.Len() || Control.GetBit(curIndex) == !curBit);
-                curBit = !curBit;
+                memcpy(&curNode, &Blocks[BLOCK_SIZE * curIndex], sizeof(curNode));
+                if(curNode.Blocks >= fitBlocksCount)
+                    break;
+                curIndex = curNode.Next;
             }
-            while(curIndex != Control.Len());
-            
-            return Control.Len();
+            while(curNode.Next != curIndex);
+            if(curIndex == curNode.Next) //No free slots
+                return Control.Len();
+            return curIndex;
         }
         
+        inline bool UseFreeNode(uint16 index, uint16 blocks)
+        {
+            n_assert(index >= PageCount * 2 && index < Control.Len());
+            
+            FreeNode curFreeNode;
+            memcpy(&curFreeNode, &Blocks[BLOCK_SIZE * index], sizeof(FreeNode));
+            if(blocks > curFreeNode.Blocks)
+                return false;
+            
+            n_optional<FreeNode> prevNode = {};
+            n_optional<FreeNode> nextNode = {};
+            if(curFreeNode.Prev != index)
+            {
+                prevNode = FreeNode {};
+                memcpy(&prevNode.value, &Blocks[BLOCK_SIZE * curFreeNode.Prev], sizeof(FreeNode));
+            }
+            
+            if(curFreeNode.Next != index)
+            {
+                nextNode = FreeNode {};
+                memcpy(&nextNode.value, &Blocks[BLOCK_SIZE * curFreeNode.Next], sizeof(FreeNode));
+            }
+            
+            if(blocks == curFreeNode.Blocks)
+            {
+                if(index == FreeNodeHead)
+                {
+                    if(nextNode)
+                        FreeNodeHead = curFreeNode.Next;
+                    else
+                        FreeNodeHead = Control.Len();
+                }
+                
+                if(prevNode)
+                {
+                    prevNode->Next = !nextNode ? curFreeNode.Prev : curFreeNode.Next;
+                    memcpy(&Blocks[BLOCK_SIZE * curFreeNode.Prev], &prevNode.value, sizeof(FreeNode));
+                }
+                if(nextNode)
+                {
+                    nextNode->Prev = !prevNode ? curFreeNode.Next : curFreeNode.Prev;
+                    memcpy(&Blocks[BLOCK_SIZE * curFreeNode.Next], &nextNode.value, sizeof(FreeNode));
+                }
+                return true;
+            }
+            
+            uint16 newIndex = index + blocks;
+            n_assert(newIndex < Control.Len() && !Control.GetBit(newIndex));
+            
+            FreeNode newNode = curFreeNode;
+            if(prevNode)
+            {
+                prevNode->Next = newIndex;
+                memcpy(&Blocks[BLOCK_SIZE * curFreeNode.Prev], &prevNode.value, sizeof(FreeNode));
+            }
+            if(nextNode)
+            {
+                nextNode->Prev = newIndex;
+                memcpy(&Blocks[BLOCK_SIZE * curFreeNode.Next], &nextNode.value, sizeof(FreeNode));
+            }
+            newNode.Blocks -= blocks;
+            memcpy(&Blocks[BLOCK_SIZE * newIndex], &newNode, sizeof(FreeNode));
+        }
+        
+        //NOTE: BlocksCount and FreeNode not maintained if OVERLAP is true. It's the caller 
+        //      responsibility
         template<bool OVERLAP = false>
         inline void* UseBlocks(uint16 index, uint64 bytes)
         {
-            if(SINGLE)
-            {
-                n_assert(index >= PageCount && index < Control.Len());
-                if(!OVERLAP)
-                    n_assert(!Control.GetBit(index));
-                Control.SetBit<true>(index);
-                ++BlocksCount;
-                return &Blocks[index * BLOCK_SIZE];
-            }
-            else
-                n_assert(index >= PageCount * 2 && index < Control.Len());
-            
+            n_assert(index >= PageCount * 2 && index < Control.Len());
+            const usize blocksNeeded = (bytes + (BLOCK_SIZE - 1)) / BLOCK_SIZE;
+            n_assert(blocksNeeded <= Control.Len() - BlocksCount);
             if(!OVERLAP)
             {
                 n_assert(!Control.GetBit(index));
                 n_assert(!Key.GetBit(index));
+                n_assert(Control.GetBit(index - 1));
+                if(!UseFreeNode(index, blocksNeeded))
+                    return NULL;
+                
+                n_assert(BlocksCount >= PageCount * 2 && BlocksCount - PageCount * 2 >= blocksNeeded);
+                BlocksCount += blocksNeeded;
             }
-            
-            const usize blocksNeeded = (bytes + (BLOCK_SIZE - 1)) / BLOCK_SIZE;
-            n_assert(blocksNeeded <= Control.Len() - BlocksCount);
             
             const uint32 endIndex = index + blocksNeeded; (void)endIndex;
             n_assert(endIndex <= Control.Len());
             n_result<void> r = Control.SetBitsAt<true>(index, blocksNeeded); (void)r;
             Key.SetBit<true>(index);
             n_assert(!r.err);
-            BlocksCount += blocksNeeded;
             return &Blocks[index * BLOCK_SIZE];
         }
         
@@ -189,18 +237,13 @@ namespace Nstd
                 return;
             
             n_assert(Control.GetBit(index));
-            if(SINGLE)
-            {
-                Control.SetBit<false>(index);
-                --BlocksCount;
-                return;
-            }
             n_assert(Key.GetBit(index));
             
-            if(index != Control.Len() - 1)
+            usize endIndex = index;
+            if(index == Control.Len() - 1)
+                endIndex = Control.Len();
+            else //Walk the occupied blocks to see how many we are using
             {
-                usize endIndex = index;
-                
                 //First round
                 usize startByteIndex = (index + 1) / 8;
                 usize startBitIndex = (index + 1) % 8;
@@ -215,7 +258,9 @@ namespace Nstd
                     }
                 }
                 
-                n_assert(startByteIndex != Control.ByteViews.len - 1 || endIndex != index);
+                if(startByteIndex == Control.ByteViews.len - 1)
+                    n_assert(endIndex != index);
+                
                 if(endIndex == index) //Not in first round
                 {
                     for(int64 i = startByteIndex + 1; i < Control.ByteViews.len; ++i)
@@ -237,34 +282,102 @@ namespace Nstd
                         endIndex = Control.Len();
                 }
                 
-                n_assert(   endIndex == Control.Len() || 
-                            !Control.GetBit(endIndex) || 
-                            Key.GetBit(endIndex));
-                n_assert(BlocksCount >= endIndex - index + PageCount);
-                Control.SetBits<false>(index, endIndex - index);
-                BlocksCount -= endIndex - index;
+                if(endIndex != Control.Len())
+                    n_assert(!Control.GetBit(endIndex) || Key.GetBit(endIndex));
+                
+                n_assert(BlocksCount >= (endIndex - index) + PageCount);
             }
-            else
+            
+            uint32 freeBlocks = endIndex - index;
+            
+            //Check if we have free neighbor space
+            n_optional<FreeNode> prevFree = n_none;
+            uint16 prevIndex = 0;
+            n_optional<FreeNode> nextFree = n_none;
+            uint16 nextIndex = endIndex;
+            if(index != PageCount * 2 && !Control.GetBit(index - 1))
             {
-                n_assert(BlocksCount > PageCount);
-                Control.SetBit<false>(index);
-                --BlocksCount;
+                n_result<ssize> r = Control.GetBitsUntilFlipped<true>(index - 1);
+                n_assert(!r.err);
+                n_assert(r.value >= 0);
+                prevIndex = r.value;
+                prevFree = FreeNode {};
+                memcpy(&prevFree.value, &Blocks[BLOCK_SIZE * (prevIndex + 1)], sizeof(FreeNode));
+            }
+            
+            if(endIndex != Control.Len() && !Control.GetBit(endIndex))
+            {
+                nextFree = FreeNode {};
+                memcpy(&nextFree.value, &Blocks[BLOCK_SIZE * endIndex], sizeof(FreeNode));
+            }
+            
+            //Merge free nodes
+            if(prevFree && nextFree) //Merge to prev free
+            {
+                prevFree->Blocks += freeBlocks + nextFree->Blocks;
+                if(nextFree->Next == nextIndex)
+                    prevFree->Next = prevIndex;
+                else
+                {
+                    prevFree->Next = nextFree->Next;
+                    
+                    FreeNode nextAfterMerged;
+                    memcpy(&nextAfterMerged, &Blocks[BLOCK_SIZE * nextFree->Next], sizeof(FreeNode));
+                    nextAfterMerged.Prev = prevIndex;
+                    memcpy(&Blocks[BLOCK_SIZE * nextFree->Next], &nextAfterMerged, sizeof(FreeNode));
+                }
+                memcpy(&Blocks[BLOCK_SIZE * prevIndex], &prevFree.value, sizeof(FreeNode));
+            }
+            else if(prevFree) //Merge to prev free
+            {
+                prevFree->Blocks += freeBlocks;
+                memcpy(&Blocks[BLOCK_SIZE * prevIndex], &prevFree.value, sizeof(FreeNode));
+            }
+            else if(nextFree) //Merge to next free
+            {
+                FreeNode curFree = *nextFree;
+                if(curFree.Next == nextIndex)
+                    curFree.Next = index;
+                else
+                {
+                    FreeNode nextAfterMerged;
+                    memcpy(&nextAfterMerged, &Blocks[BLOCK_SIZE * curFree.Next], sizeof(FreeNode));
+                    nextAfterMerged.Prev = index;
+                    memcpy(&Blocks[BLOCK_SIZE * curFree.Next], &nextAfterMerged, sizeof(FreeNode));
+                }
+                
+                if(curFree.Prev != nextIndex)
+                {
+                    FreeNode prevAfterMerged;
+                    memcpy(&prevAfterMerged, &Blocks[BLOCK_SIZE * curFree.Prev], sizeof(FreeNode));
+                    prevAfterMerged.Next = index;
+                    memcpy(&Blocks[BLOCK_SIZE * curFree.Prev], &prevAfterMerged, sizeof(FreeNode));
+                }
+                
+                if(FreeNodeHead == nextIndex)
+                    FreeNodeHead = index;
+                
+                curFree.Blocks += freeBlocks;
+                memcpy(&Blocks[BLOCK_SIZE * index], &curFree, sizeof(FreeNode));
+            }
+            else //Otherwise, create a free node and add to free node head
+            {
+                FreeNode curFree;
+                curFree.Next = FreeNodeHead == Control.Len() ? index : FreeNodeHead;
+                curFree.Prev = index;
+                curFree.Blocks = freeBlocks;
+                memcpy(&Blocks[BLOCK_SIZE * index], &curFree, sizeof(FreeNode));
             }
             
             Key.SetBit<false>(index);
+            Control.SetBits<false>(index, endIndex - index);
+            BlocksCount -= freeBlocks;
         }
         
         inline uint16 ReallocBlocks(uint16 index, uint64 bytes)
         {
             n_assert(index < Control.Len());
             n_assert(Control.GetBit(index));
-            if(SINGLE)
-            {
-                if(bytes > BLOCK_SIZE)
-                    return Control.Len();
-                return index;
-            }
-                        
             n_assert(Key.GetBit(index));
             if(bytes > (PAGE_SIZE - BLOCK_SIZE) * PageCount)
                 return Control.Len();
@@ -276,7 +389,7 @@ namespace Nstd
                     blocksOccupied = 1;
                 else
                 {
-                    n_result<usize> f = Key.GetBitsUntilFlipped(index + 1);
+                    n_result<ssize> f = Key.GetBitsUntilFlipped(index + 1);
                     n_assert(!f.err);
                     n_assert(f.value > index);
                     if(f.value != Control.Len())
@@ -300,22 +413,108 @@ namespace Nstd
             else //Grow
             {
                 //Existing blocks are not at the end and has empty space after
-                if( index + blocksOccupied != Control.Len() &&
+                if( index + blocksOccupied < Control.Len() &&
                     !Key.GetBit(index + blocksOccupied))
                 {
                     n_assert(Control.GetBit(index + blocksOccupied) == 0);
-                    n_result<usize> f = Control.GetBitsUntilFlipped(index + blocksOccupied);
-                    n_assert(!f.err);
-                    if(f.value != Control.Len())
-                        n_assert(Key.GetBit(f.value));
-                    uint16 totalBlocksFree = f.value - index;
+                    
+                    FreeNode nextFree;
+                    uint16 nextFreeIndex = index + blocksOccupied;
+                    memcpy(&nextFree, &Blocks[BLOCK_SIZE * nextFreeIndex], sizeof(FreeNode));
+                    uint16 totalBlocksFree = blocksOccupied + nextFree.Blocks;
                     if(totalBlocksFree >= totalBlocksNeeded) //If we have enough free blocks
                     {
+                        uint16 growBlocks = totalBlocksNeeded - blocksOccupied;
+                        //FreeNode newFree = nextFree;
+                        nextFree.Blocks -= growBlocks;
+                        
+                        n_optional<FreeNode> nextFreeNext = n_none;
+                        n_optional<FreeNode> nextFreePrev = n_none;
+                        if(nextFree.Next != nextFreeIndex)
+                        {
+                            nextFreeNext = FreeNode {};
+                            memcpy( &nextFreeNext.value, 
+                                    &Blocks[BLOCK_SIZE * nextFree.Next], 
+                                    sizeof(FreeNode));
+                        }
+                        
+                        if(nextFree.Prev != nextFreeIndex)
+                        {
+                            nextFreePrev = FreeNode {};
+                            memcpy( &nextFreePrev.value, 
+                                    &Blocks[BLOCK_SIZE * nextFree.Prev], 
+                                    sizeof(FreeNode));
+                        }
+                        
+                        //Update neighboring free nodes
+                        if(!nextFree.Blocks) //Used up all the free blocks in next free
+                        {
+                            if(nextFreePrev)
+                            {
+                                if(nextFreeNext)
+                                    nextFreePrev->Next = nextFree.Next;
+                                else
+                                    nextFreePrev->Next = nextFree.Prev;
+                                
+                                memcpy( &Blocks[BLOCK_SIZE * nextFree.Prev], 
+                                        &nextFreePrev.value,
+                                        sizeof(FreeNode));
+                            }
+                            
+                            if(nextFreeNext)
+                            {
+                                if(nextFreePrev)
+                                    nextFreeNext->Prev = nextFree.Prev;
+                                else
+                                {
+                                    nextFreeNext->Prev = nextFree.Next;
+                                    if(FreeNodeHead == nextFreeIndex)
+                                        FreeNodeHead = nextFree.Next;
+                                }
+                                
+                                memcpy( &Blocks[BLOCK_SIZE * nextFree.Next], 
+                                        &nextFreeNext.value,
+                                        sizeof(FreeNode));
+                            }
+                            else if(FreeNodeHead == nextFreeIndex)
+                                FreeNodeHead = Control.Len();
+                        }
+                        else
+                        {
+                            FreeNode newNextFree = nextFree;
+                            uint16 newNextFreeIndex = index + totalBlocksNeeded;
+                            
+                            if(nextFreePrev)
+                            {
+                                nextFreePrev->Next = newNextFreeIndex;
+                                memcpy( &Blocks[BLOCK_SIZE * nextFree.Prev], 
+                                        &nextFreePrev.value,
+                                        sizeof(FreeNode));
+                            }
+                            
+                            if(nextFreeNext)
+                            {
+                                nextFreeNext->Prev = newNextFreeIndex;
+                                memcpy( &Blocks[BLOCK_SIZE * nextFree.Next], 
+                                        &nextFreeNext.value,
+                                        sizeof(FreeNode));
+                            }
+                            
+                            if(FreeNodeHead == nextFreeIndex)
+                                FreeNodeHead = newNextFreeIndex;
+                            
+                            memcpy( &Blocks[BLOCK_SIZE * newNextFreeIndex], 
+                                    &newNextFree,
+                                    sizeof(FreeNode));
+                        }
+                        
                         UseBlocks<true>(index, bytes);
-                        BlocksCount -= blocksOccupied;
+                        BlocksCount += growBlocks;
                         return index;
-                    }
-                }
+                    } //if(totalBlocksFree >= totalBlocksNeeded)
+                } //if( index + blocksOccupied < Control.Len() &&
+                  //    !Key.GetBit(index + blocksOccupied))
+                
                 
                 //Try refitting...
                 uint16 fi = FitBlocks(bytes);
@@ -329,23 +528,14 @@ namespace Nstd
                 return fi;
             }
         }
-        
+
         static void FreeAll(void* c)
         {
             PageAllocator* context = (PageAllocator*)c;
-            if(SINGLE)
-            {
-                memset(context->Blocks, 0, BLOCK_SIZE * context->PageCount);
-                context->Control.SetBits<1>(0, context->PageCount);
-                context->BlocksCount = context->PageCount;
-            }
-            else
-            {
-                memset(context->Blocks, 0, BLOCK_SIZE * context->PageCount * 2);
-                context->Control.SetBits<1>(0, context->PageCount * 2);
-                context->Key.SetBit<1>(0);
-                context->BlocksCount = context->PageCount * 2;
-            }
+            memset(context->Blocks, 0, BLOCK_SIZE * context->PageCount * 2);
+            context->Control.SetBits<1>(0, context->PageCount * 2);
+            context->Key.SetBit<1>(0);
+            context->BlocksCount = context->PageCount * 2;
         }
         
         static void Destroy(void* c)
@@ -353,7 +543,7 @@ namespace Nstd
             PageAllocator* context = (PageAllocator*)c;
             if(!context->Backing)
                 NSTD_ALLOC_FREE(context->Blocks);
-            memset(context, 0, sizeof(PageAllocator<BLOCK_SIZE, SINGLE>));
+            memset(context, 0, sizeof(PageAllocator<BLOCK_SIZE>));
         }
         
         static void* Malloc(void* c, uint64 byteSize)
