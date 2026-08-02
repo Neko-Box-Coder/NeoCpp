@@ -12,9 +12,9 @@ namespace Nstd
 {
     struct FreeNode
     {
-        uint16 Next;
-        uint16 Prev;
-        uint16 Blocks;
+        uint32 Next;
+        uint32 Prev;
+        uint32 Blocks;
     };
     
     template<usize BLOCK_SIZE = 16>
@@ -25,9 +25,9 @@ namespace Nstd
         uint8* Blocks;
         BitView Control;
         BitView Key;
-        uint16 FreeNodeHead;
-        uint16 BlocksCount;
-        uint8 PageCount;
+        uint32 FreeNodeHead;
+        uint32 BlocksCount;
+        uint16 PageCount;
         bool Backing;
         
         
@@ -45,10 +45,13 @@ namespace Nstd
                 reserveSize = arg.Get<usize>();
             
             usize pageCount = reserveSize / PAGE_SIZE;
-            if(pageCount > 64 || BLOCK_SIZE * 8 * pageCount >= UINT16_MAX)
+            if(pageCount > UINT16_MAX / 2 || BLOCK_SIZE * 8 * pageCount >= UINT32_MAX)
             {
                 return n_error_msg( "Block size too small for this much memory. "
-                                    "BLOCK SIZE: %zu, Memory: %" PRIu64, BLOCK_SIZE, reserveSize);
+                                    "BLOCK SIZE: %zu, Memory: %" PRIu64 ", pageCount: %zu", 
+                                    BLOCK_SIZE, 
+                                    reserveSize,
+                                    pageCount);
             }
             
             PageCount = pageCount;
@@ -89,9 +92,9 @@ namespace Nstd
             return {};
         }
         
-        inline uint16 FitBlocks(uint64 fitByteSize)
+        inline uint32 FitBlocks(uint64 fitByteSize)
         {
-            const uint16 fitBlocksCount = (fitByteSize + (BLOCK_SIZE - 1)) / BLOCK_SIZE;
+            const uint32 fitBlocksCount = (fitByteSize + (BLOCK_SIZE - 1)) / BLOCK_SIZE;
             if(Control.Len() - PageCount * 2 < fitBlocksCount)
                 return Control.Len();
             
@@ -101,7 +104,7 @@ namespace Nstd
             n_assert(FreeNodeHead >= PageCount * 2);
             
             FreeNode curNode;
-            uint16 curIndex = FreeNodeHead;
+            uint32 curIndex = FreeNodeHead;
             do
             {
                 memcpy(&curNode, &Blocks[BLOCK_SIZE * curIndex], sizeof(curNode));
@@ -115,7 +118,7 @@ namespace Nstd
             return curIndex;
         }
         
-        inline bool UseFreeNode(uint16 index, uint16 blocks)
+        inline bool UseFreeNode(uint32 index, uint32 blocks)
         {
             n_assert(index >= PageCount * 2 && index < Control.Len());
             
@@ -161,7 +164,7 @@ namespace Nstd
                 return true;
             }
             
-            uint16 newIndex = index + blocks;
+            uint32 newIndex = index + blocks;
             n_assert(newIndex < Control.Len() && !Control.GetBit(newIndex));
             
             FreeNode newNode = curFreeNode;
@@ -177,12 +180,14 @@ namespace Nstd
             }
             newNode.Blocks -= blocks;
             memcpy(&Blocks[BLOCK_SIZE * newIndex], &newNode, sizeof(FreeNode));
+            
+            return true;
         }
         
         //NOTE: BlocksCount and FreeNode not maintained if OVERLAP is true. It's the caller 
         //      responsibility
         template<bool OVERLAP = false>
-        inline void* UseBlocks(uint16 index, uint64 bytes)
+        inline void* UseBlocks(uint32 index, uint64 bytes)
         {
             n_assert(index >= PageCount * 2 && index < Control.Len());
             const usize blocksNeeded = (bytes + (BLOCK_SIZE - 1)) / BLOCK_SIZE;
@@ -207,7 +212,7 @@ namespace Nstd
             return &Blocks[index * BLOCK_SIZE];
         }
         
-        inline uint16 FindIndex(void* ptr)
+        inline uint32 FindIndex(void* ptr)
         {
             if(ptr < Blocks || ptr >= Blocks + PAGE_SIZE * PageCount)
                 return Control.Len();
@@ -217,7 +222,7 @@ namespace Nstd
         }
         
         #if 0
-        inline uint16 GetUsedBlocksCount(uint16 index)
+        inline uint32 GetUsedBlocksCount(uint32 index)
         {
             if(index >= Control.Len())
                 return 0;
@@ -231,7 +236,7 @@ namespace Nstd
         }
         #endif
         
-        inline void FreeBlocks(uint16 index)
+        inline void FreeBlocks(uint32 index)
         {
             if(index >= Control.Len())
                 return;
@@ -292,9 +297,9 @@ namespace Nstd
             
             //Check if we have free neighbor space
             n_optional<FreeNode> prevFree = n_none;
-            uint16 prevIndex = 0;
+            uint32 prevIndex = 0;
             n_optional<FreeNode> nextFree = n_none;
-            uint16 nextIndex = endIndex;
+            uint32 nextIndex = endIndex;
             if(index != PageCount * 2 && !Control.GetBit(index - 1))
             {
                 n_result<ssize> r = Control.GetBitsUntilFlipped<true>(index - 1);
@@ -374,7 +379,7 @@ namespace Nstd
             BlocksCount -= freeBlocks;
         }
         
-        inline uint16 ReallocBlocks(uint16 index, uint64 bytes)
+        inline uint32 ReallocBlocks(uint32 index, uint64 bytes)
         {
             n_assert(index < Control.Len());
             n_assert(Control.GetBit(index));
@@ -382,7 +387,7 @@ namespace Nstd
             if(bytes > (PAGE_SIZE - BLOCK_SIZE) * PageCount)
                 return Control.Len();
             
-            uint16 blocksOccupied = 0;
+            uint32 blocksOccupied = 0;
             if(index < Control.Len() - 1)
             {
                 if(Key.GetBit(index + 1))
@@ -419,12 +424,12 @@ namespace Nstd
                     n_assert(Control.GetBit(index + blocksOccupied) == 0);
                     
                     FreeNode nextFree;
-                    uint16 nextFreeIndex = index + blocksOccupied;
+                    uint32 nextFreeIndex = index + blocksOccupied;
                     memcpy(&nextFree, &Blocks[BLOCK_SIZE * nextFreeIndex], sizeof(FreeNode));
-                    uint16 totalBlocksFree = blocksOccupied + nextFree.Blocks;
+                    uint32 totalBlocksFree = blocksOccupied + nextFree.Blocks;
                     if(totalBlocksFree >= totalBlocksNeeded) //If we have enough free blocks
                     {
-                        uint16 growBlocks = totalBlocksNeeded - blocksOccupied;
+                        uint32 growBlocks = totalBlocksNeeded - blocksOccupied;
                         //FreeNode newFree = nextFree;
                         nextFree.Blocks -= growBlocks;
                         
@@ -482,7 +487,7 @@ namespace Nstd
                         else
                         {
                             FreeNode newNextFree = nextFree;
-                            uint16 newNextFreeIndex = index + totalBlocksNeeded;
+                            uint32 newNextFreeIndex = index + totalBlocksNeeded;
                             
                             if(nextFreePrev)
                             {
@@ -517,7 +522,7 @@ namespace Nstd
                 
                 
                 //Try refitting...
-                uint16 fi = FitBlocks(bytes);
+                uint32 fi = FitBlocks(bytes);
                 if(fi == Control.Len())
                     return fi;
                 
@@ -552,7 +557,7 @@ namespace Nstd
             if(!byteSize)
                 return NULL;
             
-            uint16 index = context->FitBlocks(byteSize);
+            uint32 index = context->FitBlocks(byteSize);
             if(index == context->Control.Len())
                 return NULL;
             
@@ -573,11 +578,11 @@ namespace Nstd
             if(!p)
                 return NULL;
             
-            uint16 i = context->FindIndex(p);
+            uint32 i = context->FindIndex(p);
             if(i == context->Control.Len())
                 return NULL;
             
-            uint16 ri = context->ReallocBlocks(i, byteSize);
+            uint32 ri = context->ReallocBlocks(i, byteSize);
             if(ri == context->Control.Len())
                 return NULL;
             return &context->Blocks[ri * BLOCK_SIZE];
