@@ -33,25 +33,42 @@ namespace Nstd
             return (ByteViews.data[index / 8] >> (index % 8)) & 0x01;
         }
         
-        inline n_result<usize> GetBitsUntilFlipped(usize startIndex)
+        template<bool REVERSE = false>
+        inline n_result<ssize> GetBitsUntilFlipped(usize startIndex)
         {
-            usize i = startIndex / 8;
+            ssize i = (ssize)startIndex / 8;
             n_check_lt(i, ByteViews.len);
             usize b = startIndex % 8;
             
             uint8 s = GetBit(startIndex);
-            for(uint8 j = b; j < 8; ++j)
+            if(!REVERSE)
             {
-                if(((ByteViews.data[i] >> j) & 0x01) != s)
-                    return i * 8 + j;
+                for(uint8 j = b; j < 8; ++j)
+                {
+                    if(((ByteViews.data[i] >> j) & 0x01) != s)
+                        return i * 8 + j;
+                }
+            }
+            else
+            {
+                for(int8 j = b; j >= 0; --j)
+                {
+                    if(((ByteViews.data[i] >> j) & 0x01) != s)
+                        return i * 8 + j;
+                }
             }
             
-            ++i;
-            if(s)
+            if(!REVERSE)
+                ++i;
+            else
+                --i;
+            
+            uint8 checkValue = s ? UINT8_MAX : 0;
+            if(!REVERSE)
             {
                 for(; i < ByteViews.len; ++i)
                 {
-                    if(ByteViews.data[i] != UINT8_MAX)
+                    if(ByteViews.data[i] != checkValue)
                     {
                         for(uint8 j = 0; j < 8; ++j)
                         {
@@ -63,11 +80,11 @@ namespace Nstd
             }
             else
             {
-                for(; i < ByteViews.len; ++i)
+                for(; i >= 0; --i)
                 {
-                    if(ByteViews.data[i] != 0)
+                    if(ByteViews.data[i] != checkValue)
                     {
-                        for(uint8 j = 0; j < 8; ++j)
+                        for(int8 j = 7; j >= 0; --j)
                         {
                             if(((ByteViews.data[i] >> j) & 0x01) != s)
                                 return i * 8 + j;
@@ -76,7 +93,7 @@ namespace Nstd
                 }
             }
             
-            return Len();
+            return REVERSE ? -1 : (ssize)Len();
         }
         
         template<bool B>
