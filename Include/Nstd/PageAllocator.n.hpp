@@ -75,8 +75,8 @@ namespace Nstd
             Backing = arg.Is<n_view<char>>();
             
             FreeNodeHead = PageCount * 2;
-            FreeNode freeNode = { PageCount * 2, PageCount * 2, Control.Len() - PageCount * 2 };
-            memcpy(&Blocks[FreeNodeHead], &freeNode, sizeof(freeNode));
+            FreeNode freeNode = { FreeNodeHead, FreeNodeHead, Control.Len() - FreeNodeHead };
+            memcpy(&Blocks[BLOCK_SIZE * FreeNodeHead], &freeNode, sizeof(freeNode));
             return {};
         }
         
@@ -91,6 +91,14 @@ namespace Nstd
             Intern_Init(TaggedUnion<n_view<char>, usize>::Init<usize>(reserveSize)).n_try();
             return {};
         }
+        
+        #define ASSERT_NODE(nodeRef) \
+            do \
+            { \
+                n_assert(nodeRef.Next >= PageCount * 2 && nodeRef.Next < Control.Len()); \
+                n_assert(nodeRef.Prev >= PageCount * 2 && nodeRef.Prev < Control.Len()); \
+                n_assert(nodeRef.Blocks < Control.Len()); \
+            } while(0)
         
         inline uint32 FitBlocks(uint64 fitByteSize)
         {
@@ -108,14 +116,14 @@ namespace Nstd
             do
             {
                 memcpy(&curNode, &Blocks[BLOCK_SIZE * curIndex], sizeof(curNode));
+                ASSERT_NODE(curNode);
                 if(curNode.Blocks >= fitBlocksCount)
-                    break;
+                    return curIndex;
                 curIndex = curNode.Next;
             }
             while(curNode.Next != curIndex);
-            if(curIndex == curNode.Next) //No free slots
-                return Control.Len();
-            return curIndex;
+            
+            return Control.Len(); //No free slots
         }
         
         inline bool UseFreeNode(uint32 index, uint32 blocks)
@@ -124,6 +132,7 @@ namespace Nstd
             
             FreeNode curFreeNode;
             memcpy(&curFreeNode, &Blocks[BLOCK_SIZE * index], sizeof(FreeNode));
+            ASSERT_NODE(curFreeNode);
             if(blocks > curFreeNode.Blocks)
                 return false;
             
@@ -133,12 +142,14 @@ namespace Nstd
             {
                 prevNode = FreeNode {};
                 memcpy(&prevNode.value, &Blocks[BLOCK_SIZE * curFreeNode.Prev], sizeof(FreeNode));
+                ASSERT_NODE(prevNode.value);
             }
             
             if(curFreeNode.Next != index)
             {
                 nextNode = FreeNode {};
                 memcpy(&nextNode.value, &Blocks[BLOCK_SIZE * curFreeNode.Next], sizeof(FreeNode));
+                ASSERT_NODE(nextNode.value);
             }
             
             if(blocks == curFreeNode.Blocks)
@@ -181,6 +192,9 @@ namespace Nstd
             newNode.Blocks -= blocks;
             memcpy(&Blocks[BLOCK_SIZE * newIndex], &newNode, sizeof(FreeNode));
             
+            if(FreeNodeHead == index)
+                FreeNodeHead = newIndex;
+            
             return true;
         }
         
@@ -200,7 +214,7 @@ namespace Nstd
                 if(!UseFreeNode(index, blocksNeeded))
                     return NULL;
                 
-                n_assert(BlocksCount >= PageCount * 2 && BlocksCount - PageCount * 2 >= blocksNeeded);
+                n_assert(BlocksCount >= PageCount * 2 && Control.Len() >= BlocksCount + blocksNeeded);
                 BlocksCount += blocksNeeded;
             }
             
@@ -308,12 +322,14 @@ namespace Nstd
                 prevIndex = r.value;
                 prevFree = FreeNode {};
                 memcpy(&prevFree.value, &Blocks[BLOCK_SIZE * (prevIndex + 1)], sizeof(FreeNode));
+                ASSERT_NODE(prevFree.value);
             }
             
             if(endIndex != Control.Len() && !Control.GetBit(endIndex))
             {
                 nextFree = FreeNode {};
                 memcpy(&nextFree.value, &Blocks[BLOCK_SIZE * endIndex], sizeof(FreeNode));
+                ASSERT_NODE(nextFree.value);
             }
             
             //Merge free nodes
@@ -328,6 +344,7 @@ namespace Nstd
                     
                     FreeNode nextAfterMerged;
                     memcpy(&nextAfterMerged, &Blocks[BLOCK_SIZE * nextFree->Next], sizeof(FreeNode));
+                    ASSERT_NODE(nextAfterMerged);
                     nextAfterMerged.Prev = prevIndex;
                     memcpy(&Blocks[BLOCK_SIZE * nextFree->Next], &nextAfterMerged, sizeof(FreeNode));
                 }
@@ -347,6 +364,7 @@ namespace Nstd
                 {
                     FreeNode nextAfterMerged;
                     memcpy(&nextAfterMerged, &Blocks[BLOCK_SIZE * curFree.Next], sizeof(FreeNode));
+                    ASSERT_NODE(nextAfterMerged);
                     nextAfterMerged.Prev = index;
                     memcpy(&Blocks[BLOCK_SIZE * curFree.Next], &nextAfterMerged, sizeof(FreeNode));
                 }
@@ -355,6 +373,7 @@ namespace Nstd
                 {
                     FreeNode prevAfterMerged;
                     memcpy(&prevAfterMerged, &Blocks[BLOCK_SIZE * curFree.Prev], sizeof(FreeNode));
+                    ASSERT_NODE(prevAfterMerged);
                     prevAfterMerged.Next = index;
                     memcpy(&Blocks[BLOCK_SIZE * curFree.Prev], &prevAfterMerged, sizeof(FreeNode));
                 }
@@ -426,11 +445,11 @@ namespace Nstd
                     FreeNode nextFree;
                     uint32 nextFreeIndex = index + blocksOccupied;
                     memcpy(&nextFree, &Blocks[BLOCK_SIZE * nextFreeIndex], sizeof(FreeNode));
+                    ASSERT_NODE(nextFree);
                     uint32 totalBlocksFree = blocksOccupied + nextFree.Blocks;
                     if(totalBlocksFree >= totalBlocksNeeded) //If we have enough free blocks
                     {
                         uint32 growBlocks = totalBlocksNeeded - blocksOccupied;
-                        //FreeNode newFree = nextFree;
                         nextFree.Blocks -= growBlocks;
                         
                         n_optional<FreeNode> nextFreeNext = n_none;
@@ -441,6 +460,7 @@ namespace Nstd
                             memcpy( &nextFreeNext.value, 
                                     &Blocks[BLOCK_SIZE * nextFree.Next], 
                                     sizeof(FreeNode));
+                            ASSERT_NODE(nextFreeNext.value);
                         }
                         
                         if(nextFree.Prev != nextFreeIndex)
@@ -449,6 +469,7 @@ namespace Nstd
                             memcpy( &nextFreePrev.value, 
                                     &Blocks[BLOCK_SIZE * nextFree.Prev], 
                                     sizeof(FreeNode));
+                            ASSERT_NODE(nextFreePrev.value);
                         }
                         
                         //Update neighboring free nodes
@@ -541,6 +562,14 @@ namespace Nstd
             context->Control.SetBits<1>(0, context->PageCount * 2);
             context->Key.SetBit<1>(0);
             context->BlocksCount = context->PageCount * 2;
+            
+            context->FreeNodeHead = context->PageCount * 2;
+            FreeNode freeNode = {
+                                    context->FreeNodeHead, 
+                                    context->FreeNodeHead, 
+                                    context->Control.Len() - context->FreeNodeHead 
+                                };
+            memcpy(&context->Blocks[BLOCK_SIZE * context->FreeNodeHead], &freeNode, sizeof(freeNode));
         }
         
         static void Destroy(void* c)
@@ -596,6 +625,8 @@ namespace Nstd
             retAlloc.Init(ReserveAhead, Malloc, Free, Realloc, FreeAll, Destroy, this, true);
             return retAlloc;
         }
+        
+        #undef ASSERT_NODE
     };
     
     static_assert(n_is_simple(PageAllocator<>));
