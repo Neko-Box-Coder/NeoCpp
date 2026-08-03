@@ -45,7 +45,7 @@ namespace Nstd
 #define BENCH_ACCESS_N      50000
 #define BENCH_FREE_N        30000
 #define BENCH_ALLOC_IT      3
-#define BENCH_ALLOC_PROB    80,90,95,99 //int, BVec3, BVec3D, BFatNode, 1KB
+#define BENCH_ALLOC_PROB    10,50,80,98 //int, BVec3, BVec3D, BFatNode, 1KB
 
 
 #define NSTD_ALLOC_MALLOC(sz) BenchMalloc(sz)
@@ -268,15 +268,15 @@ namespace Nstd
         #if BENCH_BASE_LINE
             Nstd::AllocatorPool alloc = {};
         #else
-            #if 1
+            #if 0
                 Nstd::HeapAllocatorPool h = {};
                 h.Init(BENCH_SAMPLE_N);
                 Nstd::AllocatorPool alloc = h.MakeAllocatorPool();
             #endif
             
-            #if 0
-                Nstd::PageAllocator<64> p = {};
-                p.Init(2.1 MB).n_try();
+            #if 1
+                Nstd::PageAllocator<16> p = {};
+                p.Init(3 MB).n_try();
                 Nstd::AllocatorPool alloc = p.MakeAllocatorPool();
             #endif
         #endif
@@ -351,6 +351,11 @@ namespace Nstd
     
     inline n_result<void> BenchmarkAllocatorsMain()
     {
+        printf("sizeof(int): %zu, ", sizeof(int));
+        printf("sizeof(BVec3): %zu, ", sizeof(BVec3));
+        printf("sizeof(BVec3D): %zu, ", sizeof(BVec3));
+        printf("1KB \n");
+        
         for(int i = 0; i < 3; ++i)
         {
             BenchmarkAllocators().n_try();
