@@ -152,6 +152,7 @@ namespace Nstd
                 ASSERT_NODE(nextNode.value);
             }
             
+            //TODO(NOW): Something wrong when splitting or merging free nodes? There's a cycle...
             if(blocks == curFreeNode.Blocks)
             {
                 if(index == FreeNodeHead)
