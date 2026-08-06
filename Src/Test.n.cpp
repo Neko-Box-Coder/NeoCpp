@@ -10,7 +10,7 @@ OverrideCompileFlags:
             Remove: "-std=c++17"
             # Append: "-std=c++11 -Wno-sign-compare -E -P"
             # Append: "-std=c++11 -Wno-sign-compare -pg -g"
-            Append: "-std=c++11 -Wno-sign-compare"
+            Append: "-std=c++11 -Wno-sign-compare -Wno-narrowing -O0"
 
 # OverrideLinkFlags:
 #     DefaultPlatform:
