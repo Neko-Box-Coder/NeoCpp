@@ -50,7 +50,7 @@ namespace Nstd
     {
         AllocatorPool* Alloc;
         T Dummy;
-        T* Data;
+        T* Data; //TODO: Move to n_view
         uint64 Len;
         uint64 Cap;
         
