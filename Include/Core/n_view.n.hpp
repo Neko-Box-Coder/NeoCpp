@@ -3,6 +3,7 @@
 
 #include "./n_array.n.hpp"
 #include "./n_type.n.hpp"
+#include "./n_assert.n.hpp"
 
 #include <string.h>
 
@@ -27,6 +28,9 @@ namespace ncpp
         
         inline operator bool() const { return data && len; }
         inline bool operator!() const { return !(data && len); }
+        
+        inline T& operator[](usize index) { n_assert(index < len); return data[index]; }
+        inline const T& operator[](usize index) const { n_assert(index < len); return data[index]; }
     };
     
     #define n_array_to_view(arr) ncpp::n_view<n_no_ref( n_typeof(arr[0]) )> { arr, n_array_cap(arr) }
