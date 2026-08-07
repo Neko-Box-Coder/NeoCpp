@@ -13,10 +13,10 @@ namespace ncpp
     struct n_view
     {
         T* data;
-        uint64 len;
+        usize len;
         
         inline n_view() = default;
-        inline n_view(T* d, uint64 l) { data = d; len = l; }
+        inline n_view(T* d, usize l) { data = d; len = l; }
         
         template<typename T2 = T, typename T3 = n_no_const(T)> //NOTE: Hack to be trivial, same as below
         inline n_view(const n_view<T3>& other) { data = other.data; len = other.len; }
@@ -26,11 +26,62 @@ namespace ncpp
         inline n_view(const char* c) { data = c; len = strlen(c); }
         inline n_view(char* c) { data = c; len = strlen(c); }
         
+        inline n_view<T> sub(usize index, usize l)
+        {
+            if(!data || USIZE_MAX - l < index || index + l > len)
+            {
+                n_assert(false);
+                return {};
+            }
+            return { &data[index], l };
+        }
+        
+        inline n_view<const T> sub(usize index, usize l) const
+        {
+            if(!data || USIZE_MAX - l < index || index + l > len)
+            {
+                n_assert(false);
+                return {};
+            }
+            return { &data[index], l };
+        }
+        
+        inline void zero() 
+        { 
+            if(!data || !len)
+            {
+                n_assert(false);
+                return; 
+            }
+            memset(data, 0, sizeof(T) * len);
+        }
+        
+        inline void copy(n_view<T> dst, usize offset) const
+        {
+            if( !data || 
+                !len || 
+                !dst.data || 
+                !dst.len || 
+                USIZE_MAX - len < offset || 
+                offset + len > dst.len)
+            {
+                n_assert(false);
+                return;
+            }
+            memcpy(dst.data, data, sizeof(T) * len);
+        }
+        
+        template<bool ASSERT = true>
+        inline T& at(usize index) { if(ASSERT) n_assert(index < len); return data[index]; }
+        
+        template<bool ASSERT = true>
+        inline const T& at(usize index) const { if(ASSERT) n_assert(index < len); return data[index]; }
+        
         inline operator bool() const { return data && len; }
         inline bool operator!() const { return !(data && len); }
         
-        inline T& operator[](usize index) { n_assert(index < len); return data[index]; }
-        inline const T& operator[](usize index) const { n_assert(index < len); return data[index]; }
+        inline T& operator[](usize index) { return at<true>(index); }
+        inline const T& operator[](usize index) const { return at<true>(index); }
     };
     
     #define n_array_to_view(arr) ncpp::n_view<n_no_ref( n_typeof(arr[0]) )> { arr, n_array_cap(arr) }
