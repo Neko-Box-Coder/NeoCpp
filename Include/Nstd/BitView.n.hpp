@@ -25,11 +25,14 @@ namespace Nstd
         {
             const usize i = index / 8;
             n_check_lt(i, ByteViews.len);
-            return (ByteViews.data[i] >> (index % 8)) & 0x01;
+            return (ByteViews.at<false>(i) >> (index % 8)) & 0x01;
         }
         
+        template<bool CHECK = true>
         inline bool GetBit(usize index)
         {
+            if(CHECK)
+                n_assert(index / 8 < ByteViews.len);
             return (ByteViews.data[index / 8] >> (index % 8)) & 0x01;
         }
         
@@ -45,7 +48,7 @@ namespace Nstd
             {
                 for(uint8 j = b; j < 8; ++j)
                 {
-                    if(((ByteViews.data[i] >> j) & 0x01) != s)
+                    if(((ByteViews.at<false>(i) >> j) & 0x01) != s)
                         return i * 8 + j;
                 }
             }
@@ -53,7 +56,7 @@ namespace Nstd
             {
                 for(int8 j = b; j >= 0; --j)
                 {
-                    if(((ByteViews.data[i] >> j) & 0x01) != s)
+                    if(((ByteViews.at<false>(i) >> j) & 0x01) != s)
                         return i * 8 + j;
                 }
             }
@@ -68,11 +71,11 @@ namespace Nstd
             {
                 for(; i < ByteViews.len; ++i)
                 {
-                    if(ByteViews.data[i] != checkValue)
+                    if(ByteViews.at<false>(i) != checkValue)
                     {
                         for(uint8 j = 0; j < 8; ++j)
                         {
-                            if(((ByteViews.data[i] >> j) & 0x01) != s)
+                            if(((ByteViews.at<false>(i) >> j) & 0x01) != s)
                                 return i * 8 + j;
                         }
                     }
@@ -82,11 +85,11 @@ namespace Nstd
             {
                 for(; i >= 0; --i)
                 {
-                    if(ByteViews.data[i] != checkValue)
+                    if(ByteViews.at<false>(i) != checkValue)
                     {
                         for(int8 j = 7; j >= 0; --j)
                         {
-                            if(((ByteViews.data[i] >> j) & 0x01) != s)
+                            if(((ByteViews.at<false>(i) >> j) & 0x01) != s)
                                 return i * 8 + j;
                         }
                     }
@@ -103,23 +106,23 @@ namespace Nstd
             n_check_lt(i, ByteViews.len);
             
             if(B)
-                ByteViews.data[i] |= 1 << (index % 8);
+                ByteViews.at<false>(i) |= 1 << (index % 8);
             else
-                ByteViews.data[i] &= ~(1 << (index % 8));
+                ByteViews.at<false>(i) &= ~(1 << (index % 8));
             
             return {};
         }
         
-        template<bool B>
+        template<bool B, bool CHECK = true>
         inline void SetBit(usize index)
         {
             if(B)
-                ByteViews.data[index / 8] |= 1 << (index % 8);
+                ByteViews.at<CHECK>(index / 8) |= 1 << (index % 8);
             else
-                ByteViews.data[index / 8] &= ~(1 << (index % 8));
+                ByteViews.at<CHECK>(index / 8) &= ~(1 << (index % 8));
         }
         
-        template<bool B>
+        template<bool B, bool CHECK = false>
         inline void Intern_SetBits(usize index, usize range, usize s, usize e)
         {
             if(B)
@@ -128,7 +131,7 @@ namespace Nstd
                 {
                     if(i > s && i < e - 1)
                     {
-                        ByteViews.data[i] = UINT8_MAX;
+                        ByteViews.at<CHECK>(i) = UINT8_MAX;
                         continue;
                     }
                     else
@@ -143,7 +146,7 @@ namespace Nstd
                             bitEndPos = bitEndPos == 0 ? 8 : bitEndPos;
                         }
                         for(int j = bitStartPos; j < bitEndPos; ++j)
-                            ByteViews.data[i] |= 1 << j;
+                            ByteViews.at<CHECK>(i) |= 1 << j;
                     }
                 }
             }
@@ -153,7 +156,7 @@ namespace Nstd
                 {
                     if(i > s && i < e - 1)
                     {
-                        ByteViews.data[i] = 0;
+                        ByteViews.at<CHECK>(i) = 0;
                         continue;
                     }
                     else
@@ -168,7 +171,7 @@ namespace Nstd
                             bitEndPos = bitEndPos == 0 ? 8 : bitEndPos;
                         }
                         for(int j = bitStartPos; j < bitEndPos; ++j)
-                            ByteViews.data[i] &= ~(1 << j);
+                            ByteViews.at<CHECK>(i) &= ~(1 << j);
                     }
                 }
             }
@@ -184,13 +187,14 @@ namespace Nstd
             return {};
         }
         
-        template<bool B>
+        template<bool B, bool CHECK = true>
         inline void SetBits(usize index, usize range)
         {
             const usize s = index / 8;
             const usize e = (index + range + 7) / 8;
-            n_assert(e <= ByteViews.len);
-            Intern_SetBits<B>(index, range, s, e);
+            if(CHECK)
+                n_assert(e <= ByteViews.len);
+            Intern_SetBits<B, CHECK>(index, range, s, e);
             return;
         }
     };
