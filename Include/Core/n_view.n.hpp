@@ -77,6 +77,59 @@ namespace ncpp
         template<bool ASSERT = true>
         inline const T& at(usize index) const { if(ASSERT) n_assert(index < len); return data[index]; }
         
+        template<   typename T2, 
+                    n_enable_if(sizeof(T) >= sizeof(T2) ? 
+                                !(sizeof(T) % sizeof(T2)) : 
+                                !(sizeof(T2) % sizeof(T)))>
+        inline n_view<T2> as() 
+        { 
+            return  { 
+                        (T2*)data, 
+                        sizeof(T) >= sizeof(T2) ? 
+                            len * (sizeof(T) / sizeof(T2)) : 
+                            len / (sizeof(T2) / sizeof(T))
+                    };
+        }
+        
+        template<   typename T2, 
+                    n_enable_if(sizeof(T) >= sizeof(T2) ? 
+                                !(sizeof(T) % sizeof(T2)) : 
+                                !(sizeof(T2) % sizeof(T)))>
+        inline n_view<const T2> as() const
+        { 
+            return  { 
+                        (const T2*)data, 
+                        sizeof(T) >= sizeof(T2) ? 
+                            len * (sizeof(T) / sizeof(T2)) : 
+                            len / (sizeof(T2) / sizeof(T))
+                    };
+        }
+        
+        template<typename T2>
+        inline T2 read(usize index) const
+        {
+            if(!data || !len || index * sizeof(T) + sizeof(T2) > len * sizeof(T))
+            {
+                n_assert(false);
+                return {};
+            }
+            T2 temp;
+            memcpy(&temp, &data[index], sizeof(T2));
+            return temp;
+        }
+        
+        template<typename T2>
+        inline void write(usize index, const T2& var) const
+        {
+            if(!data || !len || index * sizeof(T) + sizeof(T2) > len * sizeof(T))
+            {
+                n_assert(false);
+                return;
+            }
+            memcpy(&data[index], &var, sizeof(T2));
+        }
+        
+        
         inline operator bool() const { return data && len; }
         inline bool operator!() const { return !(data && len); }
         
