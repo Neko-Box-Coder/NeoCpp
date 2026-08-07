@@ -53,10 +53,10 @@ namespace ncpp
     
     template<typename T> struct no_volatile_s { typedef T type; };
     template<typename T> struct no_volatile_s<volatile T> { typedef T type; };
-    #define n_no_volatie(t) typename ncpp::no_volatile_s<t>::type
+    #define n_no_volatile(t) typename ncpp::no_volatile_s<t>::type
     
-    #define n_no_cv(t) n_no_volatie(n_no_const(t))
-    #define n_no_cvr(t) n_no_ref(n_no_volatie(n_no_const(t)))
+    #define n_no_cv(t) n_no_volatile(n_no_const(t))
+    #define n_no_cvr(t) n_no_ref(n_no_volatile(n_no_const(t)))
 
     template<typename T> struct is_int_type_s 
     { 
