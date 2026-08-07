@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <inttypes.h>
+#include <limits.h>
 
 namespace ncpp
 {
@@ -123,6 +124,35 @@ namespace ncpp
     using ssize = n_to_signed(size_t);
     #define n_usize ncpp::usize
     #define n_ssize ncpp::ssize
+
+    constexpr usize USIZE_MAX = SIZE_MAX;
+    
+    template<typename T> struct ssize_min_max {};
+    template<> struct ssize_min_max<int16> 
+    {
+        static constexpr int16 min = INT16_MIN;
+        static constexpr int16 max = INT16_MAX;
+    };
+    
+    template<> struct ssize_min_max<int32> 
+    {
+        static constexpr int32 min = INT32_MIN;
+        static constexpr int32 max = INT32_MAX;
+    };
+    
+    template<> struct ssize_min_max<int64> 
+    {
+        static constexpr int64 min = INT64_MIN;
+        static constexpr int64 max = INT64_MAX;
+    };
+    
+    constexpr ssize SSIZE_MIN = ssize_min_max<ssize>::min;
+    
+    #ifdef SSIZE_MAX
+        #undef SSIZE_MAX
+    #endif
+    constexpr ssize SSIZE_MAX = ssize_min_max<ssize>::max;
+    
 }
 
 #endif
