@@ -386,6 +386,7 @@ namespace ncpp
 
     namespace
     {
+        //TODO: Maybe need to have it once in a single n.cpp file?
         #if INTERN_NCPP_USE_DEFAULT_ERR_BUFFER
             thread_local n_error_buffer<> global_error_buffer = {};
         #endif
