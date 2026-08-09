@@ -18,6 +18,8 @@ OverrideCompileFlags:
 #         # "g++14":
 #             Append: "-pg"
 
+Defines: ["NDEBUG=1"]
+
 IncludePaths:
 -   "../Include"
 */
@@ -36,6 +38,8 @@ IncludePaths:
 #include "Nstd/Hashmap.n.hpp"
 #include "Nstd/String.n.hpp"
 #include "Nstd/Atomic.n.hpp"
+#include "Nstd/Any.n.hpp"
+#include "Nstd/Threads.n.hpp"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -90,13 +94,6 @@ n_result<int> Main(int, char**)
         if(true)
             return 0;
     #endif
-    
-    //Nstd/Atomic.n.hpp
-    {
-        Nstd::Atomic<int8> a;
-        a.Store(6);
-        int8 b = a.Load();
-    }
     
     Nstd::HeapAllocatorPool h = {};
     h.Init(32);
@@ -314,6 +311,22 @@ n_result<int> Main(int, char**)
         (void)v;
         //n_view<const char> v = "Abc";
         //(void)TTTT(v);
+    }
+    
+    //Nstd/Atomic.n.hpp
+    {
+        Nstd::Atomic<int8> a;
+        a.Store(6); //6
+        int8 b = a.Load();
+        b = a.Exchange(8); //8
+        (void)a.StoreIfEqual(8, b); //6
+        
+        a.Add(5); //11
+        a.Sub(3); //8
+        a.Or(3); //11
+        a.Xor(5); //14
+        a.And(1); //15
+        n_check_eq(a.Load(), 15);
     }
     
     return 0;

@@ -16,3 +16,6 @@
 [submodule "c89atomic"]
 	path = Include/Nstd/External/c89atomic
 	url = https://github.com/mackron/c89atomic.git
+[submodule "cthreads"]
+	path = Include/Nstd/External/cthreads
+	url = https://github.com/pbotmeyertron/cthreads.git
