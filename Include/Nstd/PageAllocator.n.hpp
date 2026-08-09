@@ -17,7 +17,7 @@ namespace Nstd
         uint32 Blocks;
     };
     
-    template<usize BLOCK_SIZE = 16>
+    template<usize BLOCK_SIZE = 16, n_enable_if(BLOCK_SIZE >= sizeof(FreeNode))>
     struct PageAllocator
     {
         static constexpr usize PAGE_SIZE = BLOCK_SIZE * 8 * BLOCK_SIZE;
