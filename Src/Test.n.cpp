@@ -35,7 +35,7 @@ IncludePaths:
 #include "Nstd/LinkedList.n.hpp"
 #include "Nstd/Hashmap.n.hpp"
 #include "Nstd/String.n.hpp"
-
+#include "Nstd/Atomic.n.hpp"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -90,6 +90,13 @@ n_result<int> Main(int, char**)
         if(true)
             return 0;
     #endif
+    
+    //Nstd/Atomic.n.hpp
+    {
+        Nstd::Atomic<int8> a;
+        a.Store(6);
+        int8 b = a.Load();
+    }
     
     Nstd::HeapAllocatorPool h = {};
     h.Init(32);

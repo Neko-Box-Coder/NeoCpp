@@ -13,3 +13,6 @@
 [submodule "msutimer"]
 	path = Include/Nstd/External/msutimer
 	url = https://github.com/Neko-Box-Coder/msutimer.git
+[submodule "c89atomic"]
+	path = Include/Nstd/External/c89atomic
+	url = https://github.com/mackron/c89atomic.git
