@@ -59,6 +59,10 @@ namespace ncpp
     #define n_no_cv(t) n_no_volatile(n_no_const(t))
     #define n_no_cvr(t) n_no_ref(n_no_volatile(n_no_const(t)))
 
+    template<typename T> struct has_const_s { static constexpr bool value = false; };
+    template<typename T> struct has_const_s<const T> { static constexpr bool value = true; };
+    #define n_has_const(t) ncpp::has_const_s<t>::value
+
     template<typename T> struct is_int_type_s 
     { 
         static constexpr bool value =   n_is_same(n_no_cvr(T), uint8_t) ||

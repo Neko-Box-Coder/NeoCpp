@@ -18,12 +18,25 @@ namespace ncpp
         inline n_view() = default;
         inline n_view(T* d, usize l) { data = d; len = l; }
         
-        template<typename T2 = T, typename T3 = n_no_const(T)> //NOTE: Hack to be trivial, same as below
+        //NOTE: T2 = T is just a hack to be trivial
+        template<typename T2 = T, typename T3 = n_no_const(T)>
         inline n_view(const n_view<T3>& other) { data = other.data; len = other.len; }
-        //inline n_view(const n_view<n_no_const(T)>& other) { data = other.data; len = other.len; }
+        
+        template<typename T2 = T>
+        inline n_view(const n_view<const T2>& other) 
+        { 
+            static_assert(n_bool_const(false), "Cannot convert a const view to non const view");
+        }
         
         template<typename U = T, n_enable_if(n_is_same(U, const char))>
         inline n_view(const char* c) { data = c; len = strlen(c); }
+        
+        template<typename U = T, n_enable_if(!n_is_same(U, const char))>
+        inline n_view(const char* c) 
+        { 
+            static_assert(n_bool_const(false), "Cannot convert a const char* to char* view");
+        }
+        
         inline n_view(char* c) { data = c; len = strlen(c); }
         
         inline n_view<T> sub(usize index, usize l)
