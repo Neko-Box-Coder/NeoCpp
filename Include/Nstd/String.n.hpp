@@ -165,24 +165,58 @@ namespace Nstd
             return {};
         }
         
-        inline uint64 FindString(n_view<const char> v) const
+        /*
+        NOTE: startIndex is inclusive, like so:
+        ```
+        v startIndex
+        0 1 2 3 4 5 6 7
+        [   ] <-- v.len = 3
+        ```
+        */
+        inline uint64 FindString(n_view<const char> v, uint64 startIndex = 0) const
         {
-            if(!Len() || !v)
+            if(!Len() || !v || Len() < v.len || startIndex >= Len())
                 return Len();
 
-            for(char* p = strchr(Intern_Chars.Data, *v.data); p; p = strchr(++p, *v.data))
+            for(char* p = strchr(&Intern_Chars.Data[startIndex], *v.data); p; p = strchr(++p, *v.data))
             {
                 if(strncmp(p, v.data, v.len) == 0)
-                    return (uint64)(p - Intern_Chars.Data);
+                    return (uint64)(p - &Intern_Chars.Data[startIndex]);
             }
             return Len();
         }
         
+        /*
+        NOTE: startIndex is inclusive, like so:
+        ```
+                      v startIndex
+        0 1 2 3 4 5 6 7
+                  [   ] <-- v.len = 3
+        ```
+        */
+        inline n_result<uint64> ReverseFindString(n_view<char> v, uint64 startIndex)
+        {
+            if(!Len() || !v || Len() < v.len || startIndex >= Len() || startIndex < v.len - 1)
+                return Len();
+
+            for(int64 i = startIndex + 1 - v.len; i >= 0; --i)
+            {
+                if(Intern_Chars.At(i) != v.at<false>(0))
+                    continue;
+                
+                if(strncmp(&Intern_Chars.At(i), v.data, v.len) == 0)
+                    return i;
+            }
+            return Len();
+        }
+        
+        #if 0
         inline uint64 FindCString(const char* cs) const
         {
             const char* f = strstr(Intern_Chars.Data, cs);
             return f ? (uint64)(f - Intern_Chars.Data) : Len();
         }
+        #endif
         
         inline n_result<uint64> RemoveString(n_view<const char> v)
         {
@@ -193,6 +227,7 @@ namespace Nstd
             return f;
         }
         
+        #if 0
         inline n_result<uint64> RemoveCString(const char* cs)
         {
             uint64 f = FindCString(cs);
@@ -201,6 +236,7 @@ namespace Nstd
             RemoveRange(f, strlen(cs)).n_try();
             return f;
         }
+        #endif
         
         inline n_view<char> ToView()
         {
@@ -217,28 +253,6 @@ namespace Nstd
                 v.len -= 1;
             return v;
         }
-        
-        //TODO
-        #if 0
-        inline n_result<uint64> ReverseFindStringView(View<char> view)
-        {
-            if(!Len() || !view.Data || !view.Len)
-                return Len();
-
-            for(char* p = strchr(Intern_Chars.Data, view.Data); p; strchr(p, view.Data))
-            {
-                if(strncmp(p, view.Data, view.Len) == 0)
-                    return (uint64)(p - Intern_Chars.Data);
-            }
-            return Len();
-        }
-        
-        inline n_result<uint64> ReverseFindCString(const char* cs)
-        {
-            //const char* f = strstr(Intern_Chars.Data, cs);
-            //return f ? (uint64)(f - Intern_Chars.Data) : Len();
-        }
-        #endif
         
         inline n_result<void> Free()
         {
