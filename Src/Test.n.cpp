@@ -304,7 +304,7 @@ n_result<int> Main(int, char**)
     {
         char a[] = "abc";
         n_view<char> v = a;
-        n_view<const char> v2 = v;
+        (void)v;
         //n_view<const char> v = "Abc";
         //(void)TTTT(v);
     }

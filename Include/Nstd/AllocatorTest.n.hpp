@@ -276,7 +276,7 @@ namespace Nstd
             
             #if 1
                 Nstd::PageAllocator<16> p = {};
-                p.Init(3 MB).n_try();
+                p.Init(7.5 MB).n_try();
                 Nstd::AllocatorPool alloc = p.MakeAllocatorPool();
             #endif
         #endif
