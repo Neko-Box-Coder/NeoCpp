@@ -54,6 +54,7 @@ namespace Nstd
 #include "./HeapAllocatorPool.n.hpp"
 #include "./PageAllocator.n.hpp"
 #include "./NodeAllocator.n.hpp"
+#include "./FastAllocator.n.hpp"
 #include "./AllocatorPool.n.hpp"
 
 #include "./External/msutimer/msutimer.h"
@@ -285,10 +286,16 @@ namespace Nstd
                 Nstd::AllocatorPool alloc = p.MakeAllocatorPool();
             #endif
             
-            #if 1
+            #if 0
                 Nstd::NodeAllocator<> n = {};
                 n.Init(10 * 1024 * 1024).n_try();
                 Nstd::AllocatorPool alloc = n.MakeAllocatorPool();
+            #endif
+
+            #if 1
+                Nstd::FastAllocator<> f = {};
+                f.Init(10 * 1024 * 1024).n_try();
+                Nstd::AllocatorPool alloc = f.MakeAllocatorPool();
             #endif
         #endif
         double initReserveEnd = msutimer_gettime(timer);
