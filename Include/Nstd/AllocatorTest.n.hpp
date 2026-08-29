@@ -53,6 +53,7 @@ namespace Nstd
 #define NSTD_ALLOC_REALLOC(p, sz) BenchRealloc(p, sz)
 #include "./HeapAllocatorPool.n.hpp"
 #include "./PageAllocator.n.hpp"
+#include "./NodeAllocator.n.hpp"
 #include "./AllocatorPool.n.hpp"
 
 #include "./External/msutimer/msutimer.h"
@@ -278,10 +279,16 @@ namespace Nstd
                 Nstd::AllocatorPool alloc = h.MakeAllocatorPool();
             #endif
             
-            #if 1
+            #if 0
                 Nstd::PageAllocator<16> p = {};
                 p.Init(5 MB).n_try();
                 Nstd::AllocatorPool alloc = p.MakeAllocatorPool();
+            #endif
+            
+            #if 1
+                Nstd::NodeAllocator<> n = {};
+                n.Init(10 * 1024 * 1024).n_try();
+                Nstd::AllocatorPool alloc = n.MakeAllocatorPool();
             #endif
         #endif
         double initReserveEnd = msutimer_gettime(timer);
@@ -295,7 +302,7 @@ namespace Nstd
             double allocStart = msutimer_gettime(timer);
             uint32 oom = PerformAllocations(n_ref alloc, sv, n_ref minMem, szv, allocFrom, allocTo);
             double allocEnd = msutimer_gettime(timer);
-            
+
             printf("Allocations done\n");
             if(oom != allocTo)
             {
