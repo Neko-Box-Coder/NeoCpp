@@ -42,9 +42,9 @@ namespace Nstd
 #define BENCH_BASE_LINE     0
 #define BENCH_RAW_MEM       0
 #define BENCH_SAMPLE_N      100000
-#define BENCH_ACCESS_N      50000
-#define BENCH_FREE_N        30000
-#define BENCH_ALLOC_IT      3
+#define BENCH_ACCESS_N      BENCH_SAMPLE_N / 2
+#define BENCH_FREE_N        BENCH_SAMPLE_N / 5
+#define BENCH_ALLOC_IT      10
 #define BENCH_ALLOC_PROB    10,50,80,98 //int, BVec3, BVec3D, BFatNode, 1KB
 
 
@@ -190,28 +190,32 @@ namespace Nstd
                 minMem += 1024;
                 szv.data[i] = 1024;
             }
-        }
+            
+            *(int*)sv.data[i] = i;
+        } //for(int i = from; i < to; ++i)
     
         return to;
     }
     
-    inline void Access(uint32 allocFrom, uint32 allocTo, n_view<void*> sv)
+    inline n_result<void> Access(   uint32 allocFrom, 
+                                    uint32 allocTo, 
+                                    n_view<void*> sv)
     {
         int range = allocTo - allocFrom;
-        for(int i = 0; i < BENCH_ACCESS_N; ++i)
+        for(int i = 0; i < BENCH_ACCESS_N / BENCH_ALLOC_IT; ++i)
         {
             static_assert(RAND_MAX > BENCH_SAMPLE_N, "");
             int f = allocFrom + rand() % range;
             if(sv.data[f])
             {
-                if(f > 0 && sv.data[f - 1])
-                {
-                    int* cur = (int*)sv.data[f];
-                    int* prev = (int*)sv.data[f - 1];
-                    *prev += *cur;
-                }
+                n_check_eq_fmt( *(int*)sv.data[f], 
+                                f, 
+                                "Verification failed at index %i. Expected %i, Got %i",
+                                f, 
+                                *(int*)sv.data[f]);
             }
         }
+        return {};
     }
     
     inline void Free(   n_ref Nstd::AllocatorPool& alloc, 
@@ -222,7 +226,7 @@ namespace Nstd
                         n_ref uint64& minMem)
     {
         int range = allocTo - allocFrom;
-        for(int i = 0; i < BENCH_ACCESS_N; ++i)
+        for(int i = 0; i < BENCH_FREE_N / BENCH_ALLOC_IT; ++i)
         {
             static_assert(RAND_MAX > BENCH_SAMPLE_N, "");
             int f = allocFrom + rand() % range;
@@ -276,7 +280,7 @@ namespace Nstd
             
             #if 1
                 Nstd::PageAllocator<16> p = {};
-                p.Init(7.5 MB).n_try();
+                p.Init(5 MB).n_try();
                 Nstd::AllocatorPool alloc = p.MakeAllocatorPool();
             #endif
         #endif
@@ -285,7 +289,8 @@ namespace Nstd
         
         for(int it = 0; it < BENCH_ALLOC_IT; ++it)
         {
-            uint32 allocFrom = 0;
+            printf("Iteration %i:\n", it);
+            uint32 allocFrom = BENCH_SAMPLE_N / BENCH_ALLOC_IT * (it);
             uint32 allocTo = BENCH_SAMPLE_N / BENCH_ALLOC_IT * (it + 1);
             double allocStart = msutimer_gettime(timer);
             uint32 oom = PerformAllocations(n_ref alloc, sv, n_ref minMem, szv, allocFrom, allocTo);
@@ -299,12 +304,11 @@ namespace Nstd
                         allocFrom, 
                         allocTo);
             }
-            printf("Used %" PRIu64 " bytes total\n", MemUsed);
-            printf("Data %" PRIu64 " bytes\n", minMem);
-            printf("\n");
+            printf("    Used %" PRIu64 " bytes total\n", MemUsed);
+            printf("    Data %" PRIu64 " bytes\n", minMem);
             
             double accessStart = msutimer_gettime(timer);
-            Access(allocFrom,  allocTo, sv);
+            Access(allocFrom,  allocTo, sv).n_try();
             double accessEnd = msutimer_gettime(timer);
             
             //TODO: Realloc
@@ -315,13 +319,12 @@ namespace Nstd
             double freeEnd = msutimer_gettime(timer);
             
             printf("Free done\n");
-            printf("Used %" PRIu64 " bytes total\n", MemUsed);
-            printf("Data %" PRIu64 " bytes\n", minMem);
-            printf("\n");
-            
+            printf("    Used %" PRIu64 " bytes total\n", MemUsed);
+            printf("    Data %" PRIu64 " bytes\n", minMem);
             printf("Allocations:    %.3lf usecs\n", allocEnd - allocStart);
             printf("Access:         %.3lf usecs\n", accessEnd - accessStart);
             printf("Frees:          %.3lf usecs\n", freeEnd - freeStart);
+            printf("\n");
             
             if(oom != allocTo)
                 break;
@@ -343,6 +346,7 @@ namespace Nstd
         double destroyEnd = msutimer_gettime(timer);
         
         //Final
+        printf("\n");
         printf("Init Reserve:   %.3lf usecs\n", initReserveEnd - initReserveStart);
         printf("Free All:       %.3lf usecs\n", freeAllEnd - freeAllStart);
         printf("Destroy:        %.3lf usecs\n", destroyEnd - destroyStart);
@@ -358,6 +362,7 @@ namespace Nstd
         
         for(int i = 0; i < 3; ++i)
         {
+            printf("Run %i:\n\n", i);
             BenchmarkAllocators().n_try();
             printf("\n--------------------------\n");
         }
