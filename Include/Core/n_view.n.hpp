@@ -41,54 +41,54 @@ namespace ncpp
         
         inline n_view<T> sub(usize index, usize l)
         {
-            if(!data || USIZE_MAX - l < index || index + l > len)
-            {
-                n_assert(false);
-                return {};
-            }
+            n_assert(data && USIZE_MAX - l >= index && index + l <= len);
             return { &data[index], l };
         }
         
         inline n_view<const T> sub(usize index, usize l) const
         {
-            if(!data || USIZE_MAX - l < index || index + l > len)
-            {
-                n_assert(false);
-                return {};
-            }
+            n_assert(data && USIZE_MAX - l >= index && index + l <= len);
             return { &data[index], l };
         }
         
-        inline void zero() 
-        { 
-            if(!data || !len)
-            {
-                n_assert(false);
-                return; 
-            }
+        inline void zero()
+        {
+            n_assert(!data || !len);
             memset(data, 0, sizeof(T) * len);
         }
         
         inline void copy(n_view<T> dst, usize offset) const
         {
-            if( !data || 
-                !len || 
-                !dst.data || 
-                !dst.len || 
-                USIZE_MAX - len < offset || 
-                offset + len > dst.len)
-            {
-                n_assert(false);
-                return;
-            }
+            n_assert(   data && 
+                        len && 
+                        dst.data && 
+                        dst.len && 
+                        USIZE_MAX - len >= offset && 
+                        offset + len <= dst.len);
             memcpy(dst.data, data, sizeof(T) * len);
         }
         
         template<bool ASSERT = true>
-        inline T& at(usize index) { if(ASSERT) n_assert(index < len); return data[index]; }
+        inline T& at(usize index) 
+        {
+            if(ASSERT)
+                n_assert(index < len); 
+            else
+                n_assert_debug(index < len); 
+            
+            return data[index]; 
+        }
         
         template<bool ASSERT = true>
-        inline const T& at(usize index) const { if(ASSERT) n_assert(index < len); return data[index]; }
+        inline const T& at(usize index) const 
+        {
+            if(ASSERT)
+                n_assert(index < len); 
+            else
+                n_assert_debug(index < len);
+            
+            return data[index]; 
+        }
         
         template<   typename T2, 
                     n_enable_if(sizeof(T) >= sizeof(T2) ? 
@@ -110,7 +110,7 @@ namespace ncpp
                                 !(sizeof(T2) % sizeof(T)))>
         inline n_view<const T2> as() const
         { 
-            return  { 
+            return  {
                         (const T2*)data, 
                         sizeof(T) >= sizeof(T2) ? 
                             len * (sizeof(T) / sizeof(T2)) : 
@@ -118,27 +118,25 @@ namespace ncpp
                     };
         }
         
-        template<typename T2>
+        template<typename T2, bool ASSERT = true>
         inline T2 read(usize index) const
         {
-            if(!data || !len || index * sizeof(T) + sizeof(T2) > len * sizeof(T))
-            {
-                n_assert(false);
-                return {};
-            }
+            if(ASSERT)
+                n_assert(data && len && index * sizeof(T) + sizeof(T2) <= len * sizeof(T));
+            else
+                n_assert_debug(data && len && index * sizeof(T) + sizeof(T2) <= len * sizeof(T));
             T2 temp;
             memcpy(&temp, &data[index], sizeof(T2));
             return temp;
         }
         
-        template<typename T2>
+        template<typename T2, bool ASSERT = true>
         inline void write(usize index, const T2& var) const
         {
-            if(!data || !len || index * sizeof(T) + sizeof(T2) > len * sizeof(T))
-            {
-                n_assert(false);
-                return;
-            }
+            if(ASSERT)
+                n_assert(data && len && index * sizeof(T) + sizeof(T2) <= len * sizeof(T));
+            else
+                n_assert_debug(data && len && index * sizeof(T) + sizeof(T2) <= len * sizeof(T));
             memcpy(&data[index], &var, sizeof(T2));
         }
         

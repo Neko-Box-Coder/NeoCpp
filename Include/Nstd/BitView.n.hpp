@@ -33,6 +33,8 @@ namespace Nstd
         {
             if(CHECK)
                 n_assert(index / 8 < ByteViews.len);
+            else
+                n_assert_debug(index / 8 < ByteViews.len);
             return (ByteViews.data[index / 8] >> (index % 8)) & 0x01;
         }
         
@@ -194,6 +196,8 @@ namespace Nstd
             const usize e = (index + range + 7) / 8;
             if(CHECK)
                 n_assert(e <= ByteViews.len);
+            else
+                n_assert_debug(e <= ByteViews.len);
             Intern_SetBits<B, CHECK>(index, range, s, e);
             return;
         }

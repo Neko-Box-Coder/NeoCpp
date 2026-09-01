@@ -213,8 +213,7 @@ namespace Nstd
                         continue;
 
                     NodeAllocatorNode node = ReadNode(cidx);
-
-                    n_assert(!IsUsed(node.Blocks));
+                    n_assert_debug(!IsUsed(node.Blocks));
                     
                     #if 0
                     //Should not happen

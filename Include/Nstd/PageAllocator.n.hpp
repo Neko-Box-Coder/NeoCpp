@@ -30,26 +30,26 @@ namespace Nstd
         uint16 PageCount;
         
         #define DATA_START_INDEX PageCount * 2
-        #define ASSERT_NODE(nodeRef, nodeIndex) \
+        #define ASSERT_NODE_DEBUG(nodeRef, nodeIndex) \
             do \
             { \
-                n_assert(   nodeRef.Next >= DATA_START_INDEX && \
-                            nodeRef.Next < Control.Len() && \
-                            nodeRef.Next >= nodeIndex); \
-                n_assert(   nodeRef.Prev >= DATA_START_INDEX && \
-                            nodeRef.Prev < Control.Len() && \
-                            nodeRef.Prev <= nodeIndex); \
-                n_assert(nodeRef.Blocks < Control.Len()); \
+                n_assert_debug( nodeRef.Next >= DATA_START_INDEX && \
+                                nodeRef.Next < Control.Len() && \
+                                nodeRef.Next >= nodeIndex); \
+                n_assert_debug( nodeRef.Prev >= DATA_START_INDEX && \
+                                nodeRef.Prev < Control.Len() && \
+                                nodeRef.Prev <= nodeIndex); \
+                n_assert_debug(nodeRef.Blocks < Control.Len()); \
             } while(0)
         
         bool MergeNodeBefore(FreeNode& cur, uint32 curIndex)
         {
-            ASSERT_NODE(cur, curIndex);
+            ASSERT_NODE_DEBUG(cur, curIndex);
             if(cur.Prev == curIndex)
                 return false;
             
             FreeNode prev = Blocks.read<FreeNode>(BLOCK_SIZE * cur.Prev);
-            ASSERT_NODE(prev, cur.Prev);
+            ASSERT_NODE_DEBUG(prev, cur.Prev);
             if(cur.Prev + prev.Blocks != curIndex)
                 return false;
             
@@ -57,7 +57,7 @@ namespace Nstd
             {
                 n_assert(cur.Next > curIndex);
                 FreeNode next = Blocks.read<FreeNode>(BLOCK_SIZE * cur.Next);
-                ASSERT_NODE(next, cur.Next);
+                ASSERT_NODE_DEBUG(next, cur.Next);
                 n_assert(next.Prev == curIndex);
                 next.Prev = cur.Prev;
                 Blocks.write(BLOCK_SIZE * cur.Next, next);
@@ -71,12 +71,12 @@ namespace Nstd
         
         bool MergeNodeAfter(FreeNode& cur, uint32 curIndex)
         {
-            ASSERT_NODE(cur, curIndex);
+            ASSERT_NODE_DEBUG(cur, curIndex);
             if(cur.Next == curIndex)
                 return false;
             
             FreeNode next = Blocks.read<FreeNode>(BLOCK_SIZE * cur.Next);
-            ASSERT_NODE(next, cur.Next);
+            ASSERT_NODE_DEBUG(next, cur.Next);
             if(curIndex + cur.Blocks != cur.Next)
                 return false;
             
@@ -84,7 +84,7 @@ namespace Nstd
             {
                 n_assert(next.Next > cur.Next);
                 FreeNode nextNext = Blocks.read<FreeNode>(BLOCK_SIZE * next.Next);
-                ASSERT_NODE(nextNext, next.Next);
+                ASSERT_NODE_DEBUG(nextNext, next.Next);
                 n_assert(nextNext.Prev == cur.Next);
                 nextNext.Prev = curIndex;
                 Blocks.write(BLOCK_SIZE * next.Next, nextNext);
@@ -100,7 +100,7 @@ namespace Nstd
         {
             n_assert(curIndex < newIndex);
             n_assert(curIndex + cur.Blocks <= newIndex);
-            ASSERT_NODE(cur, curIndex);
+            ASSERT_NODE_DEBUG(cur, curIndex);
             if(cur.Next == curIndex)
             {
                 cur.Next = newIndex;
@@ -112,7 +112,7 @@ namespace Nstd
             }
             
             FreeNode next = Blocks.read<FreeNode>(BLOCK_SIZE * cur.Next);
-            ASSERT_NODE(next, cur.Next);
+            ASSERT_NODE_DEBUG(next, cur.Next);
             n_assert(next.Prev == curIndex);
             if(newIndex + newNode.Blocks > cur.Next)
                 return false;
@@ -131,7 +131,7 @@ namespace Nstd
         {
             n_assert(curIndex > newIndex);
             n_assert(newIndex + newNode.Blocks <= curIndex);
-            ASSERT_NODE(cur, curIndex);
+            ASSERT_NODE_DEBUG(cur, curIndex);
             if(cur.Prev == curIndex)
             {
                 n_assert(FreeNodeHead == curIndex);
@@ -145,7 +145,7 @@ namespace Nstd
             }
             
             FreeNode prev = Blocks.read<FreeNode>(BLOCK_SIZE * cur.Prev);
-            ASSERT_NODE(prev, cur.Prev);
+            ASSERT_NODE_DEBUG(prev, cur.Prev);
             n_assert(prev.Next == curIndex);
             if(cur.Prev + prev.Blocks > newIndex)
                 return false;
@@ -162,7 +162,7 @@ namespace Nstd
         
         FreeNode SplitFreeNode(FreeNode& cur, uint32 curIndex, uint32 splitIndex)
         {
-            ASSERT_NODE(cur, curIndex);
+            ASSERT_NODE_DEBUG(cur, curIndex);
             n_assert(splitIndex > curIndex && splitIndex < curIndex + splitIndex);
 
             FreeNode splitNode = cur;
@@ -176,14 +176,14 @@ namespace Nstd
             if(cur.Next != curIndex) //Update next free node to point back to split node
             {
                 FreeNode next = Blocks.read<FreeNode>(BLOCK_SIZE * cur.Next);
-                ASSERT_NODE(next, cur.Next);
+                ASSERT_NODE_DEBUG(next, cur.Next);
                 next.Prev = splitIndex;
                 Blocks.write(BLOCK_SIZE * cur.Next, next);
             }
             cur.Next = splitIndex;
             Blocks.write(BLOCK_SIZE * curIndex, cur);
 
-            ASSERT_NODE(splitNode, splitIndex);
+            ASSERT_NODE_DEBUG(splitNode, splitIndex);
             Blocks.write(BLOCK_SIZE * splitIndex, splitNode);
             return splitNode;
         }
@@ -191,7 +191,7 @@ namespace Nstd
         
         void RemoveFreeNode(FreeNode& cur, uint32 curIndex)
         {
-            ASSERT_NODE(cur, curIndex);
+            ASSERT_NODE_DEBUG(cur, curIndex);
             
             bool isHead = cur.Prev == curIndex;
             bool isTail = cur.Next == curIndex;
@@ -205,7 +205,7 @@ namespace Nstd
              if(isTail) //Removing tail
             {
                 FreeNode prev = Blocks.read<FreeNode>(BLOCK_SIZE * cur.Prev);
-                ASSERT_NODE(prev, cur.Prev);
+                ASSERT_NODE_DEBUG(prev, cur.Prev);
                 n_assert(prev.Next == curIndex);
                 prev.Next = cur.Prev;
                 Blocks.write(BLOCK_SIZE * cur.Prev, prev);
@@ -213,7 +213,7 @@ namespace Nstd
             }
             
             FreeNode next = Blocks.read<FreeNode>(BLOCK_SIZE * cur.Next);
-            ASSERT_NODE(next, cur.Next);
+            ASSERT_NODE_DEBUG(next, cur.Next);
             n_assert(next.Prev == curIndex);
             
             if(isHead) //Removing head
@@ -225,7 +225,7 @@ namespace Nstd
             {
                 next.Prev = cur.Prev;
                 FreeNode prev = Blocks.read<FreeNode>(BLOCK_SIZE * cur.Prev);
-                ASSERT_NODE(prev, cur.Prev);
+                ASSERT_NODE_DEBUG(prev, cur.Prev);
                 n_assert(prev.Next == curIndex);
                 prev.Next = cur.Next;
                 Blocks.write(BLOCK_SIZE * cur.Prev, prev);
@@ -255,7 +255,7 @@ namespace Nstd
             PageCount = pageCount;
             Blocks = backing;
             
-            n_assert(BLOCK_SIZE * DATA_START_INDEX < Blocks.len);
+            n_check_true(BLOCK_SIZE * DATA_START_INDEX < Blocks.len);
             Blocks.sub(0, BLOCK_SIZE * DATA_START_INDEX).zero();
             
             Control = Control.Init({ Blocks.data, BLOCK_SIZE * PageCount });
@@ -279,14 +279,13 @@ namespace Nstd
             if(FreeNodeHead == Control.Len())
                 return Control.Len();
             
-            n_assert(FreeNodeHead >= DATA_START_INDEX);
-            
+            n_assert_debug(FreeNodeHead >= DATA_START_INDEX);
             FreeNode curNode = {};
             uint32 curIndex = FreeNodeHead;
             while(true)
             {
-                curNode = Blocks.read<FreeNode>(BLOCK_SIZE * curIndex);
-                ASSERT_NODE(curNode, curIndex);
+                curNode = Blocks.read<FreeNode, false>(BLOCK_SIZE * curIndex);
+                ASSERT_NODE_DEBUG(curNode, curIndex);
                 if(curNode.Blocks >= fitBlocksCount)
                     return curIndex;
 
@@ -305,7 +304,7 @@ namespace Nstd
             n_assert(index >= DATA_START_INDEX && index < Control.Len());
             
             FreeNode curFreeNode = Blocks.read<FreeNode>(BLOCK_SIZE * index);
-            ASSERT_NODE(curFreeNode, index);
+            ASSERT_NODE_DEBUG(curFreeNode, index);
             if(blocks > curFreeNode.Blocks)
                 return false;
             
@@ -338,7 +337,8 @@ namespace Nstd
                 if(!UseFreeNode(index, blocksNeeded))
                     return NULL;
                 
-                n_assert(UsedBlocksCount >= DATA_START_INDEX && Control.Len() >= UsedBlocksCount + blocksNeeded);
+                n_assert(   UsedBlocksCount >= DATA_START_INDEX && 
+                            Control.Len() >= UsedBlocksCount + blocksNeeded);
                 UsedBlocksCount += blocksNeeded;
             }
             
@@ -404,7 +404,7 @@ namespace Nstd
                 {
                     for(int64 i = startByteIndex + 1; i < Control.ByteViews.len; ++i)
                     {
-                        uint8 mixedByte = Control.ByteViews[i] ^ Key.ByteViews[i];
+                        uint8 mixedByte = Control.ByteViews.at<false>(i) ^ Key.ByteViews.at<false>(i);
                         if(mixedByte == UINT8_MAX)
                             continue;
                         
@@ -465,19 +465,15 @@ namespace Nstd
             if(hasPrev) //Insert after prev, merge with prev, then handle next
             {
                 FreeNode prevNode = Blocks.read<FreeNode>(BLOCK_SIZE * prevIndex);
-                ASSERT_NODE(prevNode, prevIndex);
+                ASSERT_NODE_DEBUG(prevNode, prevIndex);
 
                 FreeNode newNode;
                 newNode.Blocks = blocksWillBeFree;
 
                 InsertFreeNodeAfter(prevNode, prevIndex, newNode, index);
-
                 MergeNodeAfter(prevNode, prevIndex);
-
                 if(hasNext)
-                {
                     MergeNodeAfter(prevNode, prevIndex);
-                }
                 return;
             }
             
@@ -487,7 +483,7 @@ namespace Nstd
             if(hasNext)
             {
                 FreeNode nextNode = Blocks.read<FreeNode>(BLOCK_SIZE * endIndex);
-                ASSERT_NODE(nextNode, endIndex);
+                ASSERT_NODE_DEBUG(nextNode, endIndex);
                 InsertFreeNodeBefore(nextNode, endIndex, cur, index);
                 MergeNodeAfter(cur, index);
                 return;
@@ -506,7 +502,7 @@ namespace Nstd
             if(index < FreeNodeHead) //Before head, become new head
             {
                 FreeNode oldHead = Blocks.read<FreeNode>(BLOCK_SIZE * FreeNodeHead);
-                ASSERT_NODE(oldHead, FreeNodeHead);
+                ASSERT_NODE_DEBUG(oldHead, FreeNodeHead);
                 InsertFreeNodeBefore(oldHead, FreeNodeHead, cur, index);
                 FreeNodeHead = index;
                 return;
@@ -519,7 +515,7 @@ namespace Nstd
             if((uint32)r.value < Control.Len()) //Scan ahead
             {
                 FreeNode nextNode = Blocks.read<FreeNode>(BLOCK_SIZE * r.value);
-                ASSERT_NODE(nextNode, r.value);
+                ASSERT_NODE_DEBUG(nextNode, r.value);
                 InsertFreeNodeBefore(nextNode, (uint32)r.value, cur, index);
             }
             else //Scan backwards
@@ -537,7 +533,7 @@ namespace Nstd
                     tailIndex = (uint32)(r3.value + 1);
 
                 FreeNode tail = Blocks.read<FreeNode>(BLOCK_SIZE * tailIndex);
-                ASSERT_NODE(tail, tailIndex);
+                ASSERT_NODE_DEBUG(tail, tailIndex);
                 InsertFreeNodeAfter(tail, tailIndex, cur, index);
             }
         }
@@ -571,7 +567,7 @@ namespace Nstd
                     cur.Blocks = shrinkCount;
 
                     FreeNode nextFree = Blocks.read<FreeNode>(BLOCK_SIZE * shrinkEnd);
-                    ASSERT_NODE(nextFree, shrinkEnd);
+                    ASSERT_NODE_DEBUG(nextFree, shrinkEnd);
 
                     InsertFreeNodeBefore(nextFree, shrinkEnd, cur, shrinkStart);
                     MergeNodeAfter(cur, shrinkStart);
@@ -591,7 +587,7 @@ namespace Nstd
                     else if(shrinkStart < FreeNodeHead)
                     {
                         FreeNode oldHead = Blocks.read<FreeNode>(BLOCK_SIZE * FreeNodeHead);
-                        ASSERT_NODE(oldHead, FreeNodeHead);
+                        ASSERT_NODE_DEBUG(oldHead, FreeNodeHead);
                         InsertFreeNodeBefore(oldHead, FreeNodeHead, cur, shrinkStart);
                         FreeNodeHead = shrinkStart;
                     }
@@ -604,7 +600,7 @@ namespace Nstd
                         if((uint32)r.value < Control.Len())
                         {
                             FreeNode nextNode = Blocks.read<FreeNode>(BLOCK_SIZE * r.value);
-                            ASSERT_NODE(nextNode, r.value);
+                            ASSERT_NODE_DEBUG(nextNode, r.value);
                             InsertFreeNodeBefore(nextNode, (uint32)r.value, cur, shrinkStart);
                         }
                         else
@@ -622,7 +618,7 @@ namespace Nstd
                                 tailIndex = (uint32)(r3.value + 1);
 
                             FreeNode tail = Blocks.read<FreeNode>(BLOCK_SIZE * tailIndex);
-                            ASSERT_NODE(tail, tailIndex);
+                            ASSERT_NODE_DEBUG(tail, tailIndex);
                             InsertFreeNodeAfter(tail, tailIndex, cur, shrinkStart);
                         }
                     }
@@ -641,7 +637,7 @@ namespace Nstd
                 
                 uint32 nextFreeIndex = index + blocksOccupied;
                 FreeNode nextFree = Blocks.read<FreeNode>(BLOCK_SIZE * nextFreeIndex);
-                ASSERT_NODE(nextFree, nextFreeIndex);
+                ASSERT_NODE_DEBUG(nextFree, nextFreeIndex);
                 
                 uint32 totalBlocksFree = blocksOccupied + nextFree.Blocks;
                 if(totalBlocksFree >= totalBlocksNeeded) //If we have enough free blocks
@@ -760,8 +756,7 @@ namespace Nstd
             return retAlloc;
         }
         
-        #undef ASSERT_NODE
-    
+        #undef ASSERT_NODE_DEBUG
         #undef DATA_START_INDEX
     };
     
