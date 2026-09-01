@@ -368,15 +368,15 @@ namespace Nstd
                 Nstd::AllocatorPool alloc = p.MakeAllocatorPool();
             #endif
             
-            #if 1
+            #if 0
                 Nstd::NodeAllocator<> n = {};
                 n.Init(backing).n_try();
                 Nstd::AllocatorPool alloc = n.MakeAllocatorPool();
             #endif
 
-            #if 0
+            #if 1
                 Nstd::FastAllocator<> f = {};
-                f.Init(7 MB).n_try();
+                f.Init(backing).n_try();
                 Nstd::AllocatorPool alloc = f.MakeAllocatorPool();
             #endif
         #endif

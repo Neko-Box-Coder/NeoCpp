@@ -30,7 +30,6 @@ namespace Nstd
         static_assert(BLOCK_SIZE >= sizeof(FastAllocatorHeader), "BLOCK_SIZE too small for header");
 
         n_view<uint8> Memory;
-        usize TotalBytes;
         usize BumpIndex;
         uint64 UsedBytes;
         
@@ -69,16 +68,11 @@ namespace Nstd
             return ((uint32)((uint8*)ptr - Memory.data - DATA_OFFSET));
         }
 
-        inline n_result<void> Init(usize reserveSize)
+        inline n_result<void> Init(n_view<uint8> backing)
         {
-            if(reserveSize == 0)
-                reserveSize = 1 * 1024 * 1024; //Default: 1MB
-
-            Memory = n_view<uint8>((uint8*)NSTD_ALLOC_MALLOC(reserveSize), reserveSize);
-            if(!Memory)
-                return n_error_msg("Failed to malloc reserve (%zu bytes)", reserveSize);
-
-            TotalBytes = reserveSize;
+            if(!backing)
+                return n_error_msg("Invalid backing");
+            Memory = backing;
             BumpIndex = 0;
             UsedBytes = 0;
 
@@ -106,7 +100,7 @@ namespace Nstd
 
             //Bump fallback
             usize slotSize = SlotSize(cls);
-            if(BumpIndex + slotSize > TotalBytes)
+            if(BumpIndex + slotSize > Memory.len)
                 return NULL;
 
             FastAllocatorHeader h = Memory.read<FastAllocatorHeader>(BumpIndex);
@@ -166,7 +160,7 @@ namespace Nstd
 
             //Bump fallback
             usize totalBytes = RoundUpToBlock(byteSize + DATA_OFFSET);
-            if(BumpIndex + totalBytes > TotalBytes)
+            if(BumpIndex + totalBytes > Memory.len)
                 return NULL;
 
             FastAllocatorHeader h = Memory.read<FastAllocatorHeader>(BumpIndex);
@@ -190,7 +184,7 @@ namespace Nstd
             if(!ptr) return;
 
             uint8* p = (uint8*)ptr;
-            if(p < Memory.data || p >= Memory.data + TotalBytes) return;
+            if(p < Memory.data || p >= Memory.data + Memory.len) return;
 
             uint32 idx = GetHeaderIndex(ptr);
             FastAllocatorHeader h = Memory.read<FastAllocatorHeader>(idx);
@@ -295,7 +289,7 @@ namespace Nstd
         static uint64 GetFreeBytes(const void* c)
         {
             const FastAllocator* context = (FastAllocator*)c;
-            return context->TotalBytes - context->UsedBytes;
+            return context->Memory.len - context->UsedBytes;
         }
 
         inline AllocatorPool MakeAllocatorPool()
