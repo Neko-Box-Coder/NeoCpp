@@ -18,7 +18,7 @@ OverrideCompileFlags:
 #         # "g++14":
 #             Append: "-pg"
 
-Defines: ["NDEBUG=1"]
+# Defines: ["NDEBUG=1"]
 
 IncludePaths:
 -   "../Include"
