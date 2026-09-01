@@ -302,6 +302,8 @@ n_result<int> Main(int, char**)
         
         s.RemoveString("Test3").n_try();
         printf("String: \"%s\" with len %" PRIu64 "\n", s.Data(), s.Len());
+    
+        s.AppendFormat("Hello {}", 1).n_try();
     }
     
     
@@ -311,6 +313,13 @@ n_result<int> Main(int, char**)
         (void)v;
         //n_view<const char> v = "Abc";
         //(void)TTTT(v);
+        
+        int b[] = {1, 2, 3};
+        
+        n_view<const int> v2 = n_array_to_view(b);
+        (void)v2;
+        //n_view<int> v3 = v2;
+        //(void)v3;
     }
     
     //Nstd/Atomic.n.hpp

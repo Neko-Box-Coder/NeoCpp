@@ -210,11 +210,112 @@ namespace Nstd
             return Len();
         }
         
-        #if 0
-        inline uint64 FindCString(const char* cs) const
+        #if 1
+        inline n_result<void> Intern_AppendBase(n_view<const char> format, 
+                                                n_ref int& index, 
+                                                const char* arg)
         {
-            const char* f = strstr(Intern_Chars.Data, cs);
-            return f ? (uint64)(f - Intern_Chars.Data) : Len();
+            return {};
+        }
+        
+        inline n_result<void> Intern_AppendBase(n_view<const char> format, 
+                                                n_ref int& index, 
+                                                n_view<const char> arg)
+        {
+            return {};
+        }
+        
+        inline n_result<void> Intern_AppendBase(n_view<const char> format, 
+                                                n_ref int& index, 
+                                                int arg)
+        {
+            return {};
+        }
+        
+        inline n_result<void> Intern_AppendFormat(n_view<const char> format, n_ref int& index)
+        {
+            usize i;
+            for(i = 0; i < format.len; ++i)
+            {
+                if(format.at<false>(i) == '{' && i > 0 && format.at<false>(i - 1) != '{')
+                    return n_error_msg("Extra format substitution found at %i", index);
+                else if(format.at<false>(i) == '}' && i > 0 && format.at<false>(i - 1) != '}')
+                    return n_error_msg("Extra format substitution found at %i", index);
+            }
+            AppendString(format).n_try();
+            return {};
+        }
+        
+        template<typename T, typename... Ts>
+        inline n_result<void> Intern_AppendFormat(  n_view<const char> format, 
+                                                    n_ref int& index, 
+                                                    T arg, 
+                                                    Ts... args)
+        {
+            usize s = 0;
+            usize i;
+            for(i = 0; i < format.len; ++i)
+            {
+                if(format.at<false>(i) == '{')
+                {
+                    if(i != format.len - 1 && format.at<false>(i + 1) == '{')
+                    {
+                        AppendString(format.sub(s, i++ - s)).n_try();
+                        s = i + 1;
+                    }
+                    else
+                        break;
+                }
+                else if(format.at<false>(i) == '}')
+                {
+                    if(i == format.len - 1 || format.at<false>(i + 1) != '}')
+                        return n_error_msg("Unescaped } found at %i", index);
+                    
+                    AppendString(format.sub(s, i++ - s)).n_try();
+                    s = i + 1;
+                }
+                
+            }
+            
+            if(s < format.len)
+            {
+                AppendString(format.sub(s, i - s)).n_try();
+            }
+            if(i >= format.len)
+                return {};
+            
+            s = i;
+            for(; i < format.len; ++i)
+            {
+                if(format.at<false>(i) == '}')
+                {
+                    if(i != format.len - 1 && format.at<false>(i + 1) == '}')
+                        return n_error_msg("Unexpected } found in substitution at %i", index);
+                    
+                    Intern_AppendBase(format.sub(s, i + 1 - s), index, arg).n_try();
+                    s = ++i;
+                    break;
+                }
+                if(i == format.len - 1)
+                    return n_error_msg("Unclosed substitution found at %i", index);
+            }
+            
+            if(s < format.len)
+            {
+                ++index;
+                Intern_AppendFormat(format.sub(s, i - s), index, args...).n_try();
+            }
+            
+            return {};
+        }
+        
+        
+        template<typename... Ts>
+        inline n_result<void> AppendFormat(n_view<const char> format, Ts... args)
+        {
+            int index = 0;
+            Intern_AppendFormat(format, index, args...).n_try();
+            return {};
         }
         #endif
         
@@ -226,17 +327,6 @@ namespace Nstd
             RemoveRange(f, v.len).n_try();
             return f;
         }
-        
-        #if 0
-        inline n_result<uint64> RemoveCString(const char* cs)
-        {
-            uint64 f = FindCString(cs);
-            if(f == Len())
-                return f;
-            RemoveRange(f, strlen(cs)).n_try();
-            return f;
-        }
-        #endif
         
         inline n_view<char> ToView()
         {
