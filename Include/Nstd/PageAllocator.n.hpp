@@ -28,7 +28,6 @@ namespace Nstd
         uint32 FreeNodeHead;
         uint32 UsedBlocksCount;
         uint16 PageCount;
-        bool Backing;
         
         #define DATA_START_INDEX PageCount * 2
         #define ASSERT_NODE(nodeRef, nodeIndex) \
@@ -235,22 +234,13 @@ namespace Nstd
             Blocks.write(BLOCK_SIZE * cur.Next, next);
         }
         
-        
-        
-        //TODO: Use CharBacking only
-        using CharBacking = n_view<char>;
-        inline n_result<void> Intern_Init(TaggedUnion<CharBacking, usize> arg)
+        inline n_result<void> Init(n_view<uint8> backing)
         {
             usize reserveSize;
             n_use_error_defer();
             
-            if(arg.Is<CharBacking>())
-            {
-                n_check_true((bool)arg.Get<CharBacking>());
-                reserveSize = arg.Get<CharBacking>().len;
-            }
-            else
-                reserveSize = arg.Get<usize>();
+            n_check_true((bool)backing);
+            reserveSize = backing.len;
             
             usize pageCount = reserveSize / PAGE_SIZE;
             if(pageCount > UINT16_MAX / 2 || BLOCK_SIZE * 8 * pageCount >= UINT32_MAX)
@@ -263,23 +253,7 @@ namespace Nstd
             }
             
             PageCount = pageCount;
-            if(arg.Is<CharBacking>())
-                Blocks = arg.Get<CharBacking>().as<uint8>();
-            else
-            {
-                Blocks = { (uint8*)NSTD_ALLOC_MALLOC(PAGE_SIZE * PageCount), PAGE_SIZE * PageCount };
-                if(!Blocks)
-                    return n_error_msg("Failed to malloc");
-            }
-            
-            n_error_defer 
-            { 
-                if(arg.Is<usize>())
-                {
-                    NSTD_ALLOC_FREE(Blocks.data); 
-                    Blocks = {};
-                }
-            };
+            Blocks = backing;
             
             n_assert(BLOCK_SIZE * DATA_START_INDEX < Blocks.len);
             Blocks.sub(0, BLOCK_SIZE * DATA_START_INDEX).zero();
@@ -289,23 +263,10 @@ namespace Nstd
             Control.SetBitsAt<1>(0, DATA_START_INDEX).n_try();
             Key.SetBit<1>(0);
             UsedBlocksCount = DATA_START_INDEX;
-            Backing = arg.Is<CharBacking>();
             
             FreeNodeHead = DATA_START_INDEX;
             FreeNode freeNode = { FreeNodeHead, FreeNodeHead, Control.Len() - FreeNodeHead };
             Blocks.write(BLOCK_SIZE * FreeNodeHead, freeNode);
-            return {};
-        }
-        
-        inline n_result<void> InitWithBacking(CharBacking backing)
-        {
-            Intern_Init(TaggedUnion<CharBacking, usize>::Init<CharBacking>(backing)).n_try();
-            return {};
-        }
-        
-        inline n_result<void> Init(usize reserveSize)
-        {
-            Intern_Init(TaggedUnion<CharBacking, usize>::Init<usize>(reserveSize)).n_try();
             return {};
         }
         
@@ -736,8 +697,6 @@ namespace Nstd
         static void Destroy(void* c)
         {
             PageAllocator* context = (PageAllocator*)c;
-            if(!context->Backing)
-                NSTD_ALLOC_FREE(context->Blocks.data);
             memset(context, 0, sizeof(PageAllocator<BLOCK_SIZE>));
         }
         

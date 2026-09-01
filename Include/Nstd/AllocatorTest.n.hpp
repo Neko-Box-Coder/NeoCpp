@@ -354,15 +354,17 @@ namespace Nstd
         #if BENCH_BASE_LINE
             Nstd::AllocatorPool alloc = {};
         #else
+            n_view<uint8> backing = n_view<uint8>((uint8*)NSTD_ALLOC_MALLOC(7 MB), 7 MB);
+            
             #if 0
                 Nstd::HeapAllocatorPool h = {};
                 h.Init(BENCH_SAMPLE_N);
                 Nstd::AllocatorPool alloc = h.MakeAllocatorPool();
             #endif
             
-            #if 0
+            #if 1
                 Nstd::PageAllocator<16> p = {};
-                p.Init(7 MB).n_try();
+                p.Init(backing).n_try();
                 Nstd::AllocatorPool alloc = p.MakeAllocatorPool();
             #endif
             
@@ -372,7 +374,7 @@ namespace Nstd
                 Nstd::AllocatorPool alloc = n.MakeAllocatorPool();
             #endif
 
-            #if 1
+            #if 0
                 Nstd::FastAllocator<> f = {};
                 f.Init(7 MB).n_try();
                 Nstd::AllocatorPool alloc = f.MakeAllocatorPool();
