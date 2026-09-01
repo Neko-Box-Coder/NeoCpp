@@ -28,14 +28,15 @@ namespace Nstd
         char* p = (char*)ptr - sizeof(uint64);
         uint64 oriSize;
         memcpy(&oriSize, p, sizeof(uint64));
-        void* p2 = realloc(p, sz + sizeof(uint64));
+        char* p2 = (char*)realloc(p, sz + sizeof(uint64));
         if(!p2)
             return NULL;
         if(sz > oriSize)
             MemUsed += sz - oriSize;
         else
             MemUsed -= oriSize - sz;
-        return p2;
+        memcpy(p2, &oriSize, sizeof(uint64));
+        return p2 + sizeof(uint64);
     }
 }
 
@@ -43,6 +44,7 @@ namespace Nstd
 #define BENCH_RAW_MEM       0
 #define BENCH_SAMPLE_N      100000
 #define BENCH_ACCESS_N      BENCH_SAMPLE_N / 2
+#define BENCH_REALLOC_N     BENCH_SAMPLE_N / 5
 #define BENCH_FREE_N        BENCH_SAMPLE_N / 5
 #define BENCH_ALLOC_IT      10
 #define BENCH_ALLOC_PROB    10,50,80,98 //int, BVec3, BVec3D, BFatNode, 1KB
@@ -91,12 +93,12 @@ namespace Nstd
     };
     
     
-    inline uint32 PerformAllocations( n_ref Nstd::AllocatorPool& alloc, 
-                                    n_view<void*> sv, 
-                                    n_ref uint64& minMem,
-                                    n_view<uint32> szv,
-                                    uint32 from,
-                                    uint32 to)
+    inline uint32 PerformAllocations(   n_ref Nstd::AllocatorPool& alloc, 
+                                        n_view<void*> sv, 
+                                        n_ref uint64& minMem,
+                                        n_view<uint32> szv,
+                                        uint32 from,
+                                        uint32 to)
     {
         int allocProbs[] = { BENCH_ALLOC_PROB };
         for(int i = from; i < to; ++i)
@@ -199,6 +201,71 @@ namespace Nstd
         return to;
     }
     
+    inline n_result<int64> Reallocs(n_ref Nstd::AllocatorPool& alloc, 
+                                    n_view<void*> sv, 
+                                    n_ref uint64& minMem,
+                                    n_view<uint32> szv,
+                                    uint32 allocFrom,
+                                    uint32 allocTo)
+    {
+        int range = allocTo - allocFrom;
+        for(int i = 0; i < BENCH_REALLOC_N / BENCH_ALLOC_IT; ++i)
+        {
+            static_assert(RAND_MAX > BENCH_SAMPLE_N, "");
+            int f = allocFrom + rand() % range;
+            if(sv.data[f])
+            {
+                int r = rand() % 4;
+                if(r < 3)
+                {
+                    #if BENCH_BASE_LINE
+                        #if BENCH_RAW_MEM
+                            sv.data[f] = realloc(sv.data[f], szv.data[f] * 2);
+                        #else
+                            sv.data[f] = BenchRealloc(sv.data[f], szv.data[f] * 2);
+                        #endif
+                    #else
+                        sv.data[f] = alloc.Realloc<char>(sv.data[f], szv.data[f] * 2);
+                    #endif
+                    
+                    if(!sv.data[f])
+                        return i;
+                    
+                    minMem += szv.data[f];
+                    szv.data[f] *= 2;
+                }
+                else if(szv.data[f] / 2 >= 4)
+                {
+                    #if BENCH_BASE_LINE
+                        #if BENCH_RAW_MEM
+                            sv.data[f] = realloc(sv.data[f], szv.data[f] / 2);
+                        #else
+                            sv.data[f] = BenchRealloc(sv.data[f], szv.data[f] / 2);
+                        #endif
+                    #else
+                        sv.data[f] = alloc.Realloc<char>(sv.data[f], szv.data[f] / 2);
+                    #endif
+                    
+                    if(!sv.data[f])
+                        return i;
+                    
+                    minMem -= szv.data[f] / 2;
+                    szv.data[f] /= 2;
+                }
+                
+                n_check_eq_fmt( *(int*)sv.data[f], 
+                                f, 
+                                "Verification failed at index %i/%i. Expected %i, Got %i",
+                                i, 
+                                BENCH_REALLOC_N / BENCH_ALLOC_IT, 
+                                f, 
+                                *(int*)sv.data[f]);
+            }
+        } //for(int i = 0; i < BENCH_REALLOC_N / BENCH_ALLOC_IT; ++i)
+        
+        return -1;
+    }
+    
     inline n_result<void> Access(   uint32 allocFrom, 
                                     uint32 allocTo, 
                                     n_view<void*> sv)
@@ -212,7 +279,9 @@ namespace Nstd
             {
                 n_check_eq_fmt( *(int*)sv.data[f], 
                                 f, 
-                                "Verification failed at index %i. Expected %i, Got %i",
+                                "Verification failed at index %i/%i. Expected %i, Got %i",
+                                i, 
+                                BENCH_ACCESS_N / BENCH_ALLOC_IT, 
                                 f, 
                                 *(int*)sv.data[f]);
             }
@@ -286,15 +355,15 @@ namespace Nstd
                 Nstd::AllocatorPool alloc = p.MakeAllocatorPool();
             #endif
             
-            #if 0
+            #if 1
                 Nstd::NodeAllocator<> n = {};
-                n.Init(10 * 1024 * 1024).n_try();
+                n.Init(5 MB).n_try();
                 Nstd::AllocatorPool alloc = n.MakeAllocatorPool();
             #endif
 
-            #if 1
+            #if 0
                 Nstd::FastAllocator<> f = {};
-                f.Init(10 * 1024 * 1024).n_try();
+                f.Init(7 MB).n_try();
                 Nstd::AllocatorPool alloc = f.MakeAllocatorPool();
             #endif
         #endif
@@ -309,7 +378,8 @@ namespace Nstd
             double allocStart = msutimer_gettime(timer);
             uint32 oom = PerformAllocations(n_ref alloc, sv, n_ref minMem, szv, allocFrom, allocTo);
             double allocEnd = msutimer_gettime(timer);
-
+            bool isOom = false;
+            
             printf("Allocations done\n");
             if(oom != allocTo)
             {
@@ -317,15 +387,31 @@ namespace Nstd
                         oom, 
                         allocFrom, 
                         allocTo);
+                isOom = true;
             }
             printf("    Used %" PRIu64 " bytes total\n", MemUsed);
             printf("    Data %" PRIu64 " bytes\n", minMem);
+            printf("    Left %" PRIu64 " bytes\n", alloc.GetFreeBytes());
+            
+            //Realloc
+            double reallocStart = msutimer_gettime(timer);
+            oom = Reallocs(n_ref alloc, sv, n_ref minMem, szv, allocFrom, allocTo).n_try();
+            double reallocEnd = msutimer_gettime(timer);
+            if(oom != -1)
+            {
+                printf( "OOM at %" PRIu32 ", out of %" PRIu32"\n", 
+                        oom, 
+                        BENCH_REALLOC_N / BENCH_ALLOC_IT);
+                isOom = true;
+            }
+            printf("Realloc done\n");
+            printf("    Used %" PRIu64 " bytes total\n", MemUsed);
+            printf("    Data %" PRIu64 " bytes\n", minMem);
+            printf("    Left %" PRIu64 " bytes\n", alloc.GetFreeBytes());
             
             double accessStart = msutimer_gettime(timer);
             Access(allocFrom,  allocTo, sv).n_try();
             double accessEnd = msutimer_gettime(timer);
-            
-            //TODO: Realloc
             
             //Free
             double freeStart = msutimer_gettime(timer);
@@ -335,12 +421,14 @@ namespace Nstd
             printf("Free done\n");
             printf("    Used %" PRIu64 " bytes total\n", MemUsed);
             printf("    Data %" PRIu64 " bytes\n", minMem);
+            printf("    Left %" PRIu64 " bytes\n", alloc.GetFreeBytes());
             printf("Allocations:    %.3lf usecs\n", allocEnd - allocStart);
             printf("Access:         %.3lf usecs\n", accessEnd - accessStart);
+            printf("Realloc:        %.3lf usecs\n", reallocEnd - reallocStart);
             printf("Frees:          %.3lf usecs\n", freeEnd - freeStart);
             printf("\n");
             
-            if(oom != allocTo)
+            if(isOom)
                 break;
         }
         

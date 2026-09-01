@@ -109,9 +109,9 @@ namespace Nstd
         inline void Free(T* ptr) { return ContextFree(Context, ptr); }
         
         template<typename T>
-        inline T* Realloc(T* ptr, uint64 count) 
+        inline T* Realloc(void* ptr, uint64 count) 
         {
-            return (T*)ContextRealloc(Context, (void*)ptr, sizeof(T) * count); 
+            return (T*)ContextRealloc(Context, ptr, sizeof(T) * count); 
         }
         
         inline void FreeAll() { return ContextFreeAll(Context); }

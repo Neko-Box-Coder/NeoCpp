@@ -114,7 +114,7 @@ namespace Nstd
             if(size <= Cap)
                 return {};
             
-            T* tmp = Alloc->Realloc(Data, size);
+            T* tmp = Alloc->Realloc<T>(Data, size);
             if(!tmp)
                 return n_error_msg("%s", "Failed to realloc");
             else
