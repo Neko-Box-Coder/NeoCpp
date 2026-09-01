@@ -36,11 +36,9 @@ namespace Nstd
         int CacheHead[BUCKET_COUNT];
         int CacheCount[BUCKET_COUNT];
 
-        static constexpr usize DEFAULT_RESERVE = 7500000;
         static constexpr uint32 NIL = ~uint32(0);
 
         n_view<uint8> Memory;
-        uint64 TotalBytes;
         uint32 BlockCount;
         uint32 FreeBlockCount;
         uint32 FreeHead;
@@ -134,20 +132,15 @@ namespace Nstd
             }
         }
 
-        inline n_result<void> Init(usize reserveSize)
+        inline n_result<void> Init(n_view<uint8> backing)
         {
-            if(reserveSize == 0)
-                reserveSize = DEFAULT_RESERVE;
-
-            uint64 totalBlocks = reserveSize / BLOCK_SIZE;
+            if(!backing)
+                return n_error_msg("Invalid backing");
+            
+            uint64 totalBlocks = backing.len / BLOCK_SIZE;
             if(totalBlocks < 2 || totalBlocks > UINT32_MAX)
-                return n_error_msg("Invalid reserve size: %zu", reserveSize);
+                return n_error_msg("Invalid reserve size: %zu", backing.len);
 
-            Memory = n_view<uint8>((uint8*)NSTD_ALLOC_MALLOC(reserveSize), reserveSize);
-            if(!Memory)
-                return n_error_msg("Failed to malloc");
-
-            TotalBytes = reserveSize;
             BlockCount = (uint32)totalBlocks;
             FreeBlockCount = BlockCount;
 
@@ -357,7 +350,7 @@ namespace Nstd
                 return;
 
             uint8* mem = (uint8*)ptr;
-            if(mem < Memory.data || mem >= Memory.data + TotalBytes)
+            if(mem < Memory.data || mem >= Memory.data + Memory.len)
                 return;
 
             uint32 idx = BlockFromPtr(mem);
