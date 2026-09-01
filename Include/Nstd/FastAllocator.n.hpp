@@ -16,23 +16,28 @@ namespace Nstd
         uint32 ClassId; //0-5 = small class, >=6 = large block byte count
     };
 
-    template<usize BLOCK_SIZE = 8>
+    template<usize BLOCK_SIZE = 16>
     struct FastAllocator
     {
         static constexpr uint32 SMALL_CLASS_COUNT = 6;
         static constexpr uint32 SMALL_MAX_SIZE = 256;
-        
+
+        static constexpr usize DATA_OFFSET =    (sizeof(FastAllocatorHeader) + BLOCK_SIZE - 1) / 
+                                                BLOCK_SIZE * BLOCK_SIZE;
+
+        static constexpr uint32 NIL = UINT32_MAX;
+
         static_assert(BLOCK_SIZE >= sizeof(FastAllocatorHeader), "BLOCK_SIZE too small for header");
 
-        uint8* Memory;
+        n_view<uint8> Memory;
         usize TotalBytes;
         usize BumpIndex;
         uint64 UsedBytes;
         
-        //Per-class free lists (head offset into pool, 0 = empty)
+        //Per-class free lists (head offset into pool, NIL = empty)
         uint32 FreeListHead[SMALL_CLASS_COUNT];
 
-        //Large block free list head (offset into pool, 0 = empty)
+        //Large block free list head (offset into pool, NIL = empty)
         uint32 LargeFreeHead;
 
         inline usize RoundUpToBlock(usize bytes)
@@ -55,13 +60,13 @@ namespace Nstd
         inline usize SlotSize(uint32 classId)
         {
             static const uint32 SIZES[] = { 8, 16, 32, 64, 128, 256 };
-            return RoundUpToBlock(SIZES[classId] + sizeof(FastAllocatorHeader));
+            return RoundUpToBlock(SIZES[classId] + DATA_OFFSET);
         }
 
-        //Get header pointer from user data pointer
-        inline FastAllocatorHeader* GetHeader(void* ptr)
+        inline uint32 GetHeaderIndex(void* ptr)
         {
-            return (FastAllocatorHeader*)((uint8*)ptr - sizeof(FastAllocatorHeader));
+            n_assert((uint8*)ptr >= (Memory.data + DATA_OFFSET));
+            return ((uint32)((uint8*)ptr - Memory.data - DATA_OFFSET));
         }
 
         inline n_result<void> Init(usize reserveSize)
@@ -69,7 +74,7 @@ namespace Nstd
             if(reserveSize == 0)
                 reserveSize = 1 * 1024 * 1024; //Default: 1MB
 
-            Memory = (uint8*)NSTD_ALLOC_MALLOC(reserveSize);
+            Memory = n_view<uint8>((uint8*)NSTD_ALLOC_MALLOC(reserveSize), reserveSize);
             if(!Memory)
                 return n_error_msg("Failed to malloc reserve (%zu bytes)", reserveSize);
 
@@ -78,9 +83,9 @@ namespace Nstd
             UsedBytes = 0;
 
             for(int i = 0; i < SMALL_CLASS_COUNT; ++i)
-                FreeListHead[i] = 0;
+                FreeListHead[i] = NIL;
 
-            LargeFreeHead = 0;
+            LargeFreeHead = NIL;
             return {};
         }
 
@@ -90,13 +95,13 @@ namespace Nstd
 
             //Try free list first — O(1) pop
             uint32 head = FreeListHead[cls];
-            if(head != 0)
+            if(head != NIL)
             {
-                FastAllocatorHeader* h = (FastAllocatorHeader*)(Memory + head);
-                FreeListHead[cls] = h->Next;
+                FastAllocatorHeader h = Memory.read<FastAllocatorHeader>(head);
+                FreeListHead[cls] = h.Next;
 
-                UsedBytes += byteSize;
-                return (uint8*)h + sizeof(FastAllocatorHeader);
+                UsedBytes += SlotSize(cls);
+                return &Memory[head + DATA_OFFSET];
             }
 
             //Bump fallback
@@ -104,69 +109,72 @@ namespace Nstd
             if(BumpIndex + slotSize > TotalBytes)
                 return NULL;
 
-            FastAllocatorHeader* h = (FastAllocatorHeader*)(Memory + BumpIndex);
-            h->ClassId = (uint32)cls;
+            FastAllocatorHeader h = Memory.read<FastAllocatorHeader>(BumpIndex);
+            h.ClassId = (uint32)cls;
+            Memory.write<FastAllocatorHeader>(BumpIndex, h);
             BumpIndex += slotSize;
-
-            UsedBytes += byteSize;
-            return (uint8*)h + sizeof(FastAllocatorHeader);
+            UsedBytes += slotSize;
+            return &Memory[BumpIndex - slotSize + DATA_OFFSET];
         }
 
         inline void* MallocLarge(uint64 byteSize)
         {
             //Try large free list first
             uint32 head = LargeFreeHead;
-            uint32 prev = 0;
-            while(head != 0)
+            uint32 prev = NIL;
+            while(head != NIL)
             {
-                FastAllocatorHeader* h = (FastAllocatorHeader*)(Memory + head);
-                uint32 slotBytes = h->ClassId; //Large blocks store byte count in ClassId
+                FastAllocatorHeader h = Memory.read<FastAllocatorHeader>(head);
+                uint32 slotBytes = h.ClassId; //Large blocks store byte count in ClassId
 
                 if(slotBytes >= (uint32)byteSize)
                 {
                     //Found a fit, remove from list
-                    if(prev == 0)
-                        LargeFreeHead = h->Next;
+                    if(prev == NIL)
+                        LargeFreeHead = h.Next;
                     else
                     {
-                        FastAllocatorHeader* ph = (FastAllocatorHeader*)(Memory + prev);
-                        ph->Next = h->Next;
+                        FastAllocatorHeader ph = Memory.read<FastAllocatorHeader>(prev);
+                        ph.Next = h.Next;
+                        Memory.write<FastAllocatorHeader>(prev, ph);
                     }
 
                     //If slot is big enough to split, carve off remainder
-                    usize usedBytes = RoundUpToBlock(byteSize + sizeof(FastAllocatorHeader));
-                    if(slotBytes > (uint32)(usedBytes + sizeof(FastAllocatorHeader)))
+                    usize usedBytes = RoundUpToBlock(byteSize + DATA_OFFSET);
+                    if(slotBytes > (uint32)(usedBytes + DATA_OFFSET))
                     {
                         uint32 remStart = head + (uint32)usedBytes;
                         uint32 remBytes = slotBytes - (uint32)usedBytes;
-                        FastAllocatorHeader* rh = (FastAllocatorHeader*)(Memory + remStart);
-                        rh->ClassId = remBytes; //Large block with remainder size
+                        FastAllocatorHeader rh = Memory.read<FastAllocatorHeader>(remStart);
+                        rh.ClassId = remBytes; //Large block with remainder size
                         
                         //Insert remainder at head of large free list
-                        rh->Next = LargeFreeHead;
+                        rh.Next = LargeFreeHead;
+                        Memory.write<FastAllocatorHeader>(remStart, rh);
                         LargeFreeHead = remStart;
                     }
 
-                    h->ClassId = (uint32)byteSize;
-                    UsedBytes += byteSize;
-                    return (uint8*)h + sizeof(FastAllocatorHeader);
+                    h.ClassId = (uint32)byteSize;
+                    Memory.write<FastAllocatorHeader>(head, h);
+                    UsedBytes += RoundUpToBlock(byteSize + DATA_OFFSET);
+                    return &Memory[head + DATA_OFFSET];
                 }
 
                 prev = head;
-                head = h->Next;
+                head = h.Next;
             }
 
             //Bump fallback
-            usize totalBytes = RoundUpToBlock(byteSize + sizeof(FastAllocatorHeader));
+            usize totalBytes = RoundUpToBlock(byteSize + DATA_OFFSET);
             if(BumpIndex + totalBytes > TotalBytes)
                 return NULL;
 
-            FastAllocatorHeader* h = (FastAllocatorHeader*)(Memory + BumpIndex);
-            h->ClassId = (uint32)byteSize;
+            FastAllocatorHeader h = Memory.read<FastAllocatorHeader>(BumpIndex);
+            h.ClassId = (uint32)byteSize;
+            Memory.write<FastAllocatorHeader>(BumpIndex, h);
             BumpIndex += totalBytes;
-
-            UsedBytes += byteSize;
-            return (uint8*)h + sizeof(FastAllocatorHeader);
+            UsedBytes += totalBytes;
+            return &Memory[BumpIndex - totalBytes + DATA_OFFSET];
         }
 
         inline void* MallocInternal(uint64 byteSize)
@@ -182,25 +190,25 @@ namespace Nstd
             if(!ptr) return;
 
             uint8* p = (uint8*)ptr;
-            if(p < Memory || p >= Memory + TotalBytes) return;
+            if(p < Memory.data || p >= Memory.data + TotalBytes) return;
 
-            FastAllocatorHeader* h = GetHeader(ptr);
-            uint32 classId = h->ClassId;
+            uint32 idx = GetHeaderIndex(ptr);
+            FastAllocatorHeader h = Memory.read<FastAllocatorHeader>(idx);
+            uint32 classId = h.ClassId;
 
-            uint32 idx = (uint32)((uint8*)h - Memory);
-
-            static const uint32 SmallSizes[] = { 8, 16, 32, 64, 128, 256 };
             if(classId <= 5) //Small block, push to class free list
             {
-                UsedBytes -= (uint64)SmallSizes[classId];
+                UsedBytes -= (uint64)SlotSize(classId);
                 int cls = (int)classId;
-                h->Next = FreeListHead[cls];
+                h.Next = FreeListHead[cls];
+                Memory.write<FastAllocatorHeader>(idx, h);
                 FreeListHead[cls] = idx;
             }
             else //Large block, push to large free list
             {
-                UsedBytes -= (uint64)classId;
-                h->Next = LargeFreeHead;
+                UsedBytes -= (uint64)RoundUpToBlock(classId + DATA_OFFSET);
+                h.Next = LargeFreeHead;
+                Memory.write<FastAllocatorHeader>(idx, h);
                 LargeFreeHead = idx;
             }
         }
@@ -215,8 +223,8 @@ namespace Nstd
                 return NULL;
             }
 
-            FastAllocatorHeader* h = GetHeader(oldPtr);
-            uint32 classId = h->ClassId;
+            FastAllocatorHeader h = Memory.read<FastAllocatorHeader>(GetHeaderIndex(oldPtr));
+            uint32 classId = h.ClassId;
 
             static const uint32 SmallSizes[] = { 8, 16, 32, 64, 128, 256 };
             uint64 currentSize;
@@ -270,17 +278,17 @@ namespace Nstd
             context->BumpIndex = 0;
             context->UsedBytes = 0;
             for(int i = 0; i < SMALL_CLASS_COUNT; ++i)
-                context->FreeListHead[i] = 0;
-            context->LargeFreeHead = 0;
+                context->FreeListHead[i] = NIL;
+            context->LargeFreeHead = NIL;
         }
 
         static void Destroy(void* c)
         {
             FastAllocator* context = (FastAllocator*)c;
-            if(context->Memory)
+            if(context->Memory.data)
             {
-                NSTD_ALLOC_FREE(context->Memory);
-                context->Memory = NULL;
+                NSTD_ALLOC_FREE(context->Memory.data);
+                context->Memory = {};
             }
         }
 
