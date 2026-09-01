@@ -163,10 +163,23 @@ namespace Nstd
             memset(context, 0, sizeof(HeapAllocatorPool));
         }
         
+        static uint64 GetFreeBytes(const void*)
+        {
+            return 1024;
+        }
+        
         inline AllocatorPool MakeAllocatorPool()
         {
             AllocatorPool retAlloc = {};
-            retAlloc.Init(ReserveAhead, Malloc, Free, Realloc, FreeAll, Destroy, this, true);
+            retAlloc.Init(  ReserveAhead, 
+                            Malloc, 
+                            Free, 
+                            Realloc, 
+                            FreeAll, 
+                            Destroy, 
+                            GetFreeBytes, 
+                            this, 
+                            true);
             return retAlloc;
         }
     };

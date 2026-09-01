@@ -788,10 +788,24 @@ namespace Nstd
         
         static void ReserveAhead(void*, uint64) {}
         
+        static uint64 GetFreeBytes(const void* c)
+        {
+            const PageAllocator* context = (PageAllocator*)c;
+            return (context->Control.Len() - context->UsedBlocksCount) * BLOCK_SIZE;
+        }
+        
         inline AllocatorPool MakeAllocatorPool()
         {
             AllocatorPool retAlloc = {};
-            retAlloc.Init(ReserveAhead, Malloc, Free, Realloc, FreeAll, Destroy, this, true);
+            retAlloc.Init(  ReserveAhead, 
+                            Malloc, 
+                            Free, 
+                            Realloc, 
+                            FreeAll, 
+                            Destroy, 
+                            GetFreeBytes, 
+                            this, 
+                            true);
             return retAlloc;
         }
         

@@ -64,6 +64,7 @@ namespace Nstd
     using ReallocSig = void* (*)(void* context, void* ptr, uint64 size);
     using FreeAllSig = void (*)(void* context);
     using DestroySig = void (*)(void* context);
+    using GetFreeBytesSig = uint64 (*)(const void* context);
     
     struct AllocatorPool
     {
@@ -73,6 +74,7 @@ namespace Nstd
         ReallocSig ContextRealloc;
         FreeAllSig ContextFreeAll;
         DestroySig ContextDestroy;
+        GetFreeBytesSig ContextGetFreeBytes;
         void* Context;
         bool Pool;
         
@@ -82,6 +84,7 @@ namespace Nstd
                             ReallocSig contextRealloc,
                             FreeAllSig contextFreeAll,
                             DestroySig contextDestroy,
+                            GetFreeBytesSig contextGetFreeBytes,
                             void* context,
                             bool pool)
         {
@@ -91,6 +94,7 @@ namespace Nstd
             ContextRealloc = contextRealloc;
             ContextFreeAll = contextFreeAll;
             ContextDestroy = contextDestroy;
+            ContextGetFreeBytes = contextGetFreeBytes;
             Context = context;
             Pool = pool;
         }
@@ -112,6 +116,7 @@ namespace Nstd
         
         inline void FreeAll() { return ContextFreeAll(Context); }
         inline void Destroy() { return ContextDestroy(Context); }
+        inline uint64 GetFreeBytes() const { return ContextGetFreeBytes(Context); }
         
         template<typename T>
         inline T* Calloc(uint64 count)

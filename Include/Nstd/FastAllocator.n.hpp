@@ -27,6 +27,7 @@ namespace Nstd
         uint8* Memory;
         usize TotalBytes;
         usize BumpIndex;
+        uint64 UsedBytes;
         
         //Per-class free lists (head offset into pool, 0 = empty)
         uint32 FreeListHead[SMALL_CLASS_COUNT];
@@ -74,6 +75,7 @@ namespace Nstd
 
             TotalBytes = reserveSize;
             BumpIndex = 0;
+            UsedBytes = 0;
 
             for(int i = 0; i < SMALL_CLASS_COUNT; ++i)
                 FreeListHead[i] = 0;
@@ -93,6 +95,7 @@ namespace Nstd
                 FastAllocatorHeader* h = (FastAllocatorHeader*)(Memory + head);
                 FreeListHead[cls] = h->Next;
 
+                UsedBytes += byteSize;
                 return (uint8*)h + sizeof(FastAllocatorHeader);
             }
 
@@ -105,6 +108,7 @@ namespace Nstd
             h->ClassId = (uint32)cls;
             BumpIndex += slotSize;
 
+            UsedBytes += byteSize;
             return (uint8*)h + sizeof(FastAllocatorHeader);
         }
 
@@ -144,6 +148,7 @@ namespace Nstd
                     }
 
                     h->ClassId = (uint32)byteSize;
+                    UsedBytes += byteSize;
                     return (uint8*)h + sizeof(FastAllocatorHeader);
                 }
 
@@ -160,6 +165,7 @@ namespace Nstd
             h->ClassId = (uint32)byteSize;
             BumpIndex += totalBytes;
 
+            UsedBytes += byteSize;
             return (uint8*)h + sizeof(FastAllocatorHeader);
         }
 
@@ -183,14 +189,17 @@ namespace Nstd
 
             uint32 idx = (uint32)((uint8*)h - Memory);
 
+            static const uint32 SmallSizes[] = { 8, 16, 32, 64, 128, 256 };
             if(classId <= 5) //Small block, push to class free list
             {
+                UsedBytes -= (uint64)SmallSizes[classId];
                 int cls = (int)classId;
                 h->Next = FreeListHead[cls];
                 FreeListHead[cls] = idx;
             }
             else //Large block, push to large free list
             {
+                UsedBytes -= (uint64)classId;
                 h->Next = LargeFreeHead;
                 LargeFreeHead = idx;
             }
@@ -259,6 +268,7 @@ namespace Nstd
         {
             FastAllocator* context = (FastAllocator*)c;
             context->BumpIndex = 0;
+            context->UsedBytes = 0;
             for(int i = 0; i < SMALL_CLASS_COUNT; ++i)
                 context->FreeListHead[i] = 0;
             context->LargeFreeHead = 0;
@@ -274,6 +284,12 @@ namespace Nstd
             }
         }
 
+        static uint64 GetFreeBytes(const void* c)
+        {
+            const FastAllocator* context = (FastAllocator*)c;
+            return context->TotalBytes - context->UsedBytes;
+        }
+
         inline AllocatorPool MakeAllocatorPool()
         {
             AllocatorPool retAlloc = {};
@@ -283,6 +299,7 @@ namespace Nstd
                             ReallocCallback, 
                             FreeAll, 
                             Destroy, 
+                            GetFreeBytes, 
                             this, 
                             true);
             return retAlloc;

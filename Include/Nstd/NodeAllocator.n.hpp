@@ -79,7 +79,7 @@ namespace Nstd
             return (uint32)((p - Memory.data - DATA_OFFSET) / BLOCK_SIZE);
         }
 
-        uint64 UsableBytes(uint32 blocks)
+        uint64 UsableBytes(uint32 blocks) const
         {
             uint32 total = blocks * BLOCK_SIZE;
             if(total > DATA_OFFSET)
@@ -555,10 +555,24 @@ namespace Nstd
             context->Destroy();
         }
 
+        static uint64 GetFreeBytes(const void* c)
+        {
+            const NodeAllocator* context = (NodeAllocator*)c;
+            return context->UsableBytes(context->FreeBlockCount);
+        }
+
         inline AllocatorPool MakeAllocatorPool()
         {
             AllocatorPool retAlloc = {};
-            retAlloc.Init(ReserveAhead, Malloc, Free, Realloc, FreeAll, DestroyAlloc, this, true);
+            retAlloc.Init(  ReserveAhead, 
+                            Malloc, 
+                            Free, 
+                            Realloc, 
+                            FreeAll, 
+                            DestroyAlloc, 
+                            GetFreeBytes, 
+                            this, 
+                            true);
             return retAlloc;
         }
     };
