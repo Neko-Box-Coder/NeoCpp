@@ -35,7 +35,7 @@ struct String
 */
 
 #include "ncpp.n.hpp"
-
+#include "./Allocator.n.hpp"
 #include "./List.n.hpp"
 
 #include <string.h>
@@ -46,9 +46,9 @@ namespace Nstd
     {
         List<char> Intern_Chars;
         
-        inline String Init(Allocator alloc, uint64 reserveSize)
+        inline String Init(n_ref Allocator& alloc, uint64 reserveSize)
         {
-            Intern_Chars = Intern_Chars.Init(alloc, reserveSize + 1);
+            Intern_Chars = Intern_Chars.Init(n_ref alloc, reserveSize + 1);
             Intern_Chars.Add('\0');
             return { Intern_Chars };
         }

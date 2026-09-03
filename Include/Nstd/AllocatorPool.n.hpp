@@ -35,17 +35,17 @@ namespace Nstd
     {
         List<TARGET_ALLOC> Allocators;
         List<uint64> BackingSizes;
-        Allocator BackingAllocator;
+        Allocator* BackingAllocator;
         
-        static inline n_result<AllocatorPool> Init(Allocator backingAlloc, uint64 initialSize)
+        static inline n_result<AllocatorPool> Init(n_ref Allocator& backingAlloc, uint64 initialSize)
         {
             n_use_error_defer();
             
             n_error_defer { backingAlloc.Destroy(); };
             AllocatorPool pool = {};
-            pool.BackingAllocator = backingAlloc;
-            pool.Allocators = pool.Allocators.Init(pool.BackingAllocator, 16);
-            pool.BackingSizes = pool.BackingSizes.Init(pool.BackingAllocator, 16);
+            pool.BackingAllocator = &backingAlloc;
+            pool.Allocators = pool.Allocators.Init(n_ref *pool.BackingAllocator, 16);
+            pool.BackingSizes = pool.BackingSizes.Init(n_ref *pool.BackingAllocator, 16);
             pool.AddAllocator(initialSize).n_try();
             
             return pool;
@@ -54,10 +54,11 @@ namespace Nstd
         inline n_result<void> AddAllocator(uint64 allocSize)
         {
             n_use_error_defer();
+            n_check_true(BackingAllocator);
             
-            n_view<uint8> backing = BackingAllocator.Malloc<uint8>(allocSize);
+            n_view<uint8> backing = BackingAllocator->Malloc<uint8>(allocSize);
             n_check_true((bool)backing);
-            n_error_defer { BackingAllocator.Free(backing); };
+            n_error_defer { BackingAllocator->Free(backing); };
             
             TARGET_ALLOC alloc = {};
             alloc.Init(backing).n_try();

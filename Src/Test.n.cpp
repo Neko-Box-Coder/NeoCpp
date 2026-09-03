@@ -139,7 +139,7 @@ n_result<int> Main(int, char**)
     
     {
         
-        Nstd::AllocatorPool<Nstd::FastAllocator<>> AllocPool = AllocPool.Init(alloc, 64).n_try();
+        Nstd::AllocatorPool<Nstd::FastAllocator<>> AllocPool = AllocPool.Init(n_ref alloc, 64).n_try();
         
         
     }
@@ -239,7 +239,7 @@ n_result<int> Main(int, char**)
     //Nstd/Hashmap.n.hpp
     {
         Nstd::Hashmap<int> hmap = 
-            hmap.InitValues(alloc, 
+            hmap.InitValues(n_ref alloc, 
                             Nstd::KeyValue<int> { "Test-2", -2 },
                             Nstd::KeyValue<int> { "Test-1", -1 },
                             Nstd::KeyValue<int> { "Test0", 0 });
@@ -280,7 +280,7 @@ n_result<int> Main(int, char**)
     
     //Nstd/String.n.hpp
     {
-        Nstd::String s = s.InitString(alloc, "Test");
+        Nstd::String s = s.InitString(n_ref alloc, "Test");
         printf("String: \"%s\" with len %" PRIu64 "\n", s.Data(), s.Len());
         
         s.Add('s').n_try();

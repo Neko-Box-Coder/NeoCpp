@@ -48,16 +48,16 @@ namespace Nstd
     template<typename T, n_enable_if(n_is_simple(T))>
     struct List
     {
-        Allocator Alloc;
+        Allocator* Alloc;
         T Dummy;
         T* Data; //TODO: Move to n_view
         uint64 Len;
         uint64 Cap;
         
-        inline List Init(Allocator alloc, uint64 reserveSize)
+        inline List Init(n_ref Allocator& alloc, uint64 reserveSize)
         {
             List retList;
-            retList.Alloc = alloc;
+            retList.Alloc = &alloc;
             retList.Dummy = {};
             retList.Data = alloc.Malloc<T>(reserveSize).data;
             retList.Len = 0;
@@ -82,9 +82,9 @@ namespace Nstd
         }
         
         template<typename... Ts>
-        inline List InitValues(Allocator alloc, Ts... values)
+        inline List InitValues(n_ref Allocator& alloc, Ts... values)
         {
-            List l = Init(alloc, sizeof...(values));
+            List l = Init(n_ref alloc, sizeof...(values));
             if(!l.Cap)
                 return l;
             
@@ -110,11 +110,11 @@ namespace Nstd
         
         inline n_result<void> Reserve(uint64 size)
         {
-            n_check_true(Alloc.ContextRealloc);
+            n_check_true(Alloc);
             if(size <= Cap)
                 return {};
             
-            n_view<T> tmp = Alloc.Realloc<T>(n_view<T>(Data, Len), size);
+            n_view<T> tmp = Alloc->Realloc<T>(n_view<T>(Data, Len), size);
             if(!tmp)
                 return n_error_msg("%s", "Failed to realloc");
             else
@@ -235,8 +235,8 @@ namespace Nstd
         
         inline n_result<void> Free()
         {
-            n_check_true(Alloc.ContextFree);
-            Alloc.Free(Data);
+            n_check_true(Alloc);
+            Alloc->Free(Data);
             Data = NULL;
             Len = 0;
             Cap = 0;
