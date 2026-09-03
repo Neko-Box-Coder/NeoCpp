@@ -38,7 +38,7 @@ list.At(2): 3
 
 #include "ncpp.n.hpp"
 
-#include "./AllocatorPool.n.hpp"
+#include "./Allocator.n.hpp"
 #include "./External/MacroPowerToys/ArgsCount.h"
 
 #include <stdarg.h>
@@ -48,18 +48,18 @@ namespace Nstd
     template<typename T, n_enable_if(n_is_simple(T))>
     struct List
     {
-        AllocatorPool* Alloc;
+        Allocator Alloc;
         T Dummy;
         T* Data; //TODO: Move to n_view
         uint64 Len;
         uint64 Cap;
         
-        inline List Init(n_ref AllocatorPool& alloc, uint64 reserveSize)
+        inline List Init(Allocator alloc, uint64 reserveSize)
         {
             List retList;
-            retList.Alloc = &alloc;
+            retList.Alloc = alloc;
             retList.Dummy = {};
-            retList.Data = alloc.Malloc<T>(reserveSize);
+            retList.Data = alloc.Malloc<T>(reserveSize).data;
             retList.Len = 0;
             retList.Cap = retList.Data ? reserveSize : 0;
             return retList;
@@ -82,7 +82,7 @@ namespace Nstd
         }
         
         template<typename... Ts>
-        inline List InitValues(n_ref AllocatorPool& alloc, Ts... values)
+        inline List InitValues(Allocator alloc, Ts... values)
         {
             List l = Init(alloc, sizeof...(values));
             if(!l.Cap)
@@ -110,16 +110,16 @@ namespace Nstd
         
         inline n_result<void> Reserve(uint64 size)
         {
-            n_check_true(Alloc);
+            n_check_true(Alloc.ContextRealloc);
             if(size <= Cap)
                 return {};
             
-            T* tmp = Alloc->Realloc<T>(Data, size);
+            n_view<T> tmp = Alloc.Realloc<T>(n_view<T>(Data, Len), size);
             if(!tmp)
                 return n_error_msg("%s", "Failed to realloc");
             else
             {
-                Data = tmp;
+                Data = tmp.data;
                 Cap = size;
             }
             return {};
@@ -235,8 +235,8 @@ namespace Nstd
         
         inline n_result<void> Free()
         {
-            n_check_true(Alloc);
-            Alloc->Free(Data);
+            n_check_true(Alloc.ContextFree);
+            Alloc.Free(Data);
             Data = NULL;
             Len = 0;
             Cap = 0;

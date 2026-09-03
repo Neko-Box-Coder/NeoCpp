@@ -21,268 +21,156 @@ Usage:
 */
 
 #include "ncpp.n.hpp"
-#include "./TaggedUnion.n.hpp"
+
+#include "./Allocator.n.hpp"
+#include "./List.n.hpp"
 
 #include <string.h>
 #include <stddef.h>
 
-#if !defined(NSTD_ALLOC_MALLOC) && !defined(NSTD_ALLOC_FREE) && !defined(NSTD_ALLOC_REALLOC)
-    #include <stdlib.h>
-    #define NSTD_ALLOC_MALLOC(sz) malloc(sz)
-    #define NSTD_ALLOC_FREE(p) free(p)
-    #define NSTD_ALLOC_REALLOC(p, sz) realloc(p, sz)
-#elif !defined(NSTD_ALLOC_MALLOC) || !defined(NSTD_ALLOC_FREE) || !defined(NSTD_ALLOC_REALLOC)
-    #error "You cannot partially define custom memory allocation macros"
-#endif
-
-#ifndef KB
-    #define KB * 1000
-#endif
-
-#ifndef MB
-    #define MB * 1000000
-#endif
-
-#ifndef GB
-    #define GB * 1000000000
-#endif
-
 namespace Nstd
 {
-    inline void* Intern_Calloc(usize sz)
-    {
-        void* p = NSTD_ALLOC_MALLOC(sz);
-        if(!p)
-            return NULL;
-        memset(p, 0, sz);
-        return p;
-    }
-    
-    using ReserveAheadSig = void (*)(void* context, uint64 size);
-    using MallocSig = void* (*)(void* context, uint64 size);
-    using FreeSig = void (*)(void* context, void* ptr);
-    using ReallocSig = void* (*)(void* context, void* ptr, uint64 size);
-    using FreeAllSig = void (*)(void* context);
-    using DestroySig = void (*)(void* context);
-    using GetFreeBytesSig = uint64 (*)(const void* context);
-    
+    template<typename TARGET_ALLOC>
     struct AllocatorPool
     {
-        ReserveAheadSig ContextReserveAhead;
-        MallocSig ContextMalloc;
-        FreeSig ContextFree;
-        ReallocSig ContextRealloc;
-        FreeAllSig ContextFreeAll;
-        DestroySig ContextDestroy;
-        GetFreeBytesSig ContextGetFreeBytes;
-        void* Context;
-        bool Pool;
+        List<TARGET_ALLOC> Allocators;
+        List<uint64> BackingSizes;
+        Allocator BackingAllocator;
         
-        inline void Init(   ReserveAheadSig contextReserveAhead,
-                            MallocSig contextMalloc,
-                            FreeSig contextFree,
-                            ReallocSig contextRealloc,
-                            FreeAllSig contextFreeAll,
-                            DestroySig contextDestroy,
-                            GetFreeBytesSig contextGetFreeBytes,
-                            void* context,
-                            bool pool)
+        static inline n_result<AllocatorPool> Init(Allocator backingAlloc, uint64 initialSize)
         {
-            ContextReserveAhead = contextReserveAhead;
-            ContextMalloc = contextMalloc;
-            ContextFree = contextFree;
-            ContextRealloc = contextRealloc;
-            ContextFreeAll = contextFreeAll;
-            ContextDestroy = contextDestroy;
-            ContextGetFreeBytes = contextGetFreeBytes;
-            Context = context;
-            Pool = pool;
-        }
-        
-        template<typename T>
-        inline void ReserveAhead(uint64 count) { ContextReserveAhead(Context, sizeof(T) * count); }
-        
-        template<typename T>
-        inline T* Malloc(uint64 count) { return (T*)ContextMalloc(Context, sizeof(T) * count); }
-        
-        template<typename T>
-        inline void Free(T* ptr) { return ContextFree(Context, ptr); }
-        
-        template<typename T>
-        inline T* Realloc(void* ptr, uint64 count) 
-        {
-            return (T*)ContextRealloc(Context, ptr, sizeof(T) * count); 
-        }
-        
-        inline void FreeAll() { return ContextFreeAll(Context); }
-        inline void Destroy() { return ContextDestroy(Context); }
-        inline uint64 GetFreeBytes() const { return ContextGetFreeBytes(Context); }
-        
-        template<typename T>
-        inline T* Calloc(uint64 count)
-        {
-            T* t = Malloc<T>(count);
-            if(!t)
-                return NULL;
-            memset(t, 0, sizeof(T) * count);
-            return t;
-        }
-    };
-    
-    #if 0
-    struct LargeAllocs
-    {
-        uint8** Allocs;
-        
-        uint64* Sizes;
-        bool* Used;
-        
-        uint16 Len;
-        uint16 Cap;
-        
-        inline void Init(uint16 initialEntries)
-        {
-            Allocs = (uint8**)Intern_Calloc(initialEntries * sizeof(uint8*));
-            Sizes = (uint64*)Intern_Calloc(initialEntries * sizeof(uint64));
-            Used = (bool*)Intern_Calloc(initialEntries * sizeof(bool));
+            n_use_error_defer();
             
-            if(!Allocs || !Sizes || !Used)
+            n_error_defer { backingAlloc.Destroy(); };
+            AllocatorPool pool = {};
+            pool.BackingAllocator = backingAlloc;
+            pool.Allocators = pool.Allocators.Init(pool.BackingAllocator, 16);
+            pool.BackingSizes = pool.BackingSizes.Init(pool.BackingAllocator, 16);
+            pool.AddAllocator(initialSize).n_try();
+            
+            return pool;
+        }
+        
+        inline n_result<void> AddAllocator(uint64 allocSize)
+        {
+            n_use_error_defer();
+            
+            n_view<uint8> backing = BackingAllocator.Malloc<uint8>(allocSize);
+            n_check_true((bool)backing);
+            n_error_defer { BackingAllocator.Free(backing); };
+            
+            TARGET_ALLOC alloc = {};
+            alloc.Init(backing).n_try();
+            n_error_defer 
             {
-                NSTD_ALLOC_FREE(Allocs);
-                NSTD_ALLOC_FREE(Sizes);
-                NSTD_ALLOC_FREE(Used);
-                return;
-            }
-            Len = 0;
-            Cap = initialEntries;
+                alloc.Destroy(&alloc); 
+                Allocators.Resize(0); 
+                BackingSizes.Resize(0); 
+            };
+            
+            Allocators.Add(alloc).n_try();
+            BackingSizes.Add(allocSize).n_try();
+            return {};
         }
         
-        inline uint16 Fit(uint64 fitSize)
+        inline void* InternMalloc(uint64 allocSize)
         {
-            if(!Allocs || !Len)
-                return Len;
-        
-            for(int i = 0; i < Len; ++i)
+            for(int i = 0; i < Allocators.Len; ++i)
             {
-                if(!Used[i] && Sizes[i] >= fitSize)
-                    return i;
-            }
-            return Len;
-        }
-        
-        inline uint8* Realloc(uint16 index, uint64 byteSizes)
-        {
-            if(index >= Len)
-                return NULL;
-            
-            if(Sizes[index] >= byteSizes)
-                return Allocs[index];
-            
-            uint8* t = (uint8*)NSTD_ALLOC_REALLOC(Allocs[index], byteSizes);
-            if(!t)
-                return NULL;
-            
-            Allocs[index] = t;
-            Sizes[index] = byteSizes;
-            return t;
-        }
-        
-        inline void* Use(uint16 index)
-        {
-            n_assert(index < Len);
-            Used[index] = true;
-            return Allocs[index];
-        }
-        
-        inline void NewEntry(uint64 allocSize)
-        {
-            if(Len == Cap)
-            {
-                uint8** a = (uint8**)NSTD_ALLOC_REALLOC(Allocs, (Cap * 2) * sizeof(uint8*));
-                uint64* s = (uint64*)NSTD_ALLOC_REALLOC(Sizes, (Cap * 2) * sizeof(uint64));
-                bool* u = (bool*)NSTD_ALLOC_REALLOC(Used, (Cap * 2) * sizeof(bool));
-                if(!a || !s || !u)
+                if(Allocators.at(i).GetFreeBytes(&Allocators).at(i) > allocSize)
                 {
-                    NSTD_ALLOC_FREE(a);
-                    NSTD_ALLOC_FREE(s);
-                    NSTD_ALLOC_FREE(u);
-                    return;
+                    void* p = Allocators.at(i).Malloc(Allocators.at(i), allocSize);
+                    if(p)
+                        return p;
                 }
-                
-                Allocs = a;
-                Sizes = s;
-                Used = u;
-                Cap *= 2;
             }
             
-            uint8* m = (uint8*)NSTD_ALLOC_MALLOC(allocSize);
-            Allocs[Len] = m;
-            Sizes[Len] = allocSize;
-            Used[Len] = false;
-            ++Len;
-        }
-        
-        inline void Free(uint16 index)
-        {
-            if(!Used || index >= Len)
-                return;
-            
-            if(index == Len - 1)
+            n_assert(Allocators.Len == BackingSizes.Len);
+            if(BackingSizes.Len == 0 || BackingSizes.At(BackingSizes.Len - 1) * 2 < allocSize + 1 KB)
             {
-                Used[--Len] = false;
-                return;
+                if(AddAllocator(allocSize + 1 KB).err)
+                    return NULL;
             }
-            
-            //Swap the freed one with the last one
-            uint8* a = Allocs[Len - 1];
-            uint64 s = Sizes[Len - 1];
-            
-            Allocs[Len - 1] = Allocs[index];
-            Sizes[Len - 1] = Sizes[index];
-            Used[Len - 1] = false;
-            
-            Allocs[index] = a;
-            Sizes[index] = s;
-        }
-        
-        inline void FreeAll()
-        {
-            if(!Allocs || !Sizes || !Used)
-                return;
-            
-            for(uint16 i = 0; i < Len; ++i)
-                Used[i] = false;
-            Len = 0;
-            return;
-        }
-        
-        inline void Destroy()
-        {
-            if(!Allocs || !Sizes || !Used)
-                return;
-            
-            for(uint16 i = 0; i < Len; ++i)
+            else
             {
-                if(Sizes[i] > 0)
-                    NSTD_ALLOC_FREE(Allocs[i]);
+                if(AddAllocator(BackingSizes.At(BackingSizes.Len - 1) * 2).err)
+                    return NULL;
             }
-            NSTD_ALLOC_FREE(Allocs);
-            NSTD_ALLOC_FREE(Sizes);
-            NSTD_ALLOC_FREE(Used);
-            memset(this, 0, sizeof(LargeAllocs));
+            
+            return Allocators.at(Allocators.Len - 1).Malloc(allocSize);
+        }
+        
+        inline void InternFree(void* mem)
+        {
+            for(int i = 0; i < Allocators.Len; ++i)
+            {
+                if(Allocators.at(i).OwnsPtr(mem))
+                {
+                    Allocators.at(i).Free(&Allocators.at(i), mem);
+                    break;
+                }
+            }
+        }
+        
+        inline void* InternRealloc(void* mem, usize allocSize)
+        {
+            for(int i = 0; i < Allocators.Len; ++i)
+            {
+                if(Allocators.at(i).OwnsPtr(mem))
+                    return Allocators.at(i).Realloc(&Allocators.at(i), mem, allocSize);
+            }
+            return NULL;
+        }
+        
+        inline void InternFreeAll()
+        {
+            for(int i = 0; i < Allocators.Len; ++i)
+                Allocators.at(i).FreeAll(&Allocators.at(i));
+        }
+        
+        inline void InternDestroy()
+        {
+            for(int i = 0; i < Allocators.Len; ++i)
+                Allocators.at(i).Destroy(&Allocators.at(i));
+        }
+        
+        static inline void* Malloc(void* context, uint64 allocSize)
+        {
+            AllocatorPool* pool = (AllocatorPool*)context;
+            return pool->InternMalloc(allocSize);
+        }
+        
+        static inline void Free(void* context, void* mem)
+        {
+            AllocatorPool* pool = (AllocatorPool*)context;
+            return pool->InternFree(mem);
+        }
+        
+        static inline void* Realloc(void* context, void* mem, usize allocSize)
+        {
+            AllocatorPool* pool = (AllocatorPool*)context;
+            return pool->InternRealloc(mem, allocSize);
+        }
+        
+        static inline void FreeAll(void* context)
+        {
+            AllocatorPool* pool = (AllocatorPool*)context;
+            return pool->InternFreeAll();
+        }
+        
+        static inline void Destroy(void* context)
+        {
+            AllocatorPool* pool = (AllocatorPool*)context;
+            return pool->InternDestroy();
+        }
+        
+        inline Allocator MakeAllocator()
+        {
+            return Allocator::Init(Malloc, Free, Realloc, FreeAll, Destroy, NULL, this);
         }
     };
-    #endif
     
-    struct ArenaAllocator
-    {
-    };
-    
-    struct CustomAllocator
-    {
-    };
-    
-    static_assert(n_is_simple(AllocatorPool));
+    //static_assert(n_is_simple(AllocatorPool));
 }
 
 #endif

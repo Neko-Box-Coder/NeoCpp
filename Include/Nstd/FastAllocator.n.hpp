@@ -2,7 +2,7 @@
 #define NSTD_FAST_ALLOCATOR_N_HPP
 
 #include "ncpp.n.hpp"
-#include "./AllocatorPool.n.hpp"
+#include "./Allocator.n.hpp"
 
 #include <string.h>
 #include <stddef.h>
@@ -171,20 +171,23 @@ namespace Nstd
             return &Memory[BumpIndex - totalBytes + DATA_OFFSET];
         }
 
-        inline void* MallocInternal(uint64 byteSize)
+        inline void* InternMalloc(uint64 byteSize)
         {
-            if(byteSize == 0) return NULL;
+            if(byteSize == 0)
+                return NULL;
             if(byteSize <= SMALL_MAX_SIZE)
                 return MallocSmall(byteSize);
             return MallocLarge(byteSize);
         }
 
-        inline void Free(void* ptr)
+        inline void InternFree(void* ptr)
         {
-            if(!ptr) return;
+            if(!ptr)
+                return;
 
             uint8* p = (uint8*)ptr;
-            if(p < Memory.data || p >= Memory.data + Memory.len) return;
+            if(p < Memory.data || p >= Memory.data + Memory.len)
+                return;
 
             uint32 idx = GetHeaderIndex(ptr);
             FastAllocatorHeader h = Memory.read<FastAllocatorHeader>(idx);
@@ -207,15 +210,18 @@ namespace Nstd
             }
         }
 
-        inline void* Realloc(void* oldPtr, uint64 byteSize)
+        inline void* InternRealloc(void* oldPtr, uint64 byteSize)
         {
             if(!oldPtr)
-                return MallocInternal(byteSize);
+                return InternMalloc(byteSize);
             if(byteSize == 0)
             {
-                Free(oldPtr);
+                InternFree(oldPtr);
                 return NULL;
             }
+            
+            if(oldPtr < Memory.data || oldPtr >= Memory.data + Memory.len)
+                return oldPtr;
 
             FastAllocatorHeader h = Memory.read<FastAllocatorHeader>(GetHeaderIndex(oldPtr));
             uint32 classId = h.ClassId;
@@ -229,41 +235,46 @@ namespace Nstd
 
             if(byteSize <= currentSize) return oldPtr; //No grow needed
 
-            void* newPtr = MallocInternal(byteSize);
+            void* newPtr = InternMalloc(byteSize);
             if(!newPtr) return NULL;
             memcpy(newPtr, oldPtr, (byteSize < currentSize) ? byteSize : currentSize);
-            Free(oldPtr);
+            InternFree(oldPtr);
             return newPtr;
         }
 
-        static void ReserveAhead(void*, uint64) {}
+        bool OwnsPtr(void* ptr)
+        {
+            if(!ptr)
+                return false;
+            return ptr >= Memory.data && ptr < Memory.data + Memory.len;
+        }
 
-        static void* MallocCallback(void* c, uint64 byteSize)
+        static void* Malloc(void* c, uint64 byteSize)
         {
             if(!byteSize)
                 return NULL;
             FastAllocator* context = (FastAllocator*)c;
-            return context->MallocInternal(byteSize);
+            return context->InternMalloc(byteSize);
         }
 
-        static void FreeCallback(void* c, void* ptr)
+        static void Free(void* c, void* ptr)
         {
             FastAllocator* context = (FastAllocator*)c;
-            context->Free(ptr);
+            context->InternFree(ptr);
         }
 
-        static void* ReallocCallback(void* c, void* p, uint64 byteSize)
+        static void* Realloc(void* c, void* p, uint64 byteSize)
         {
             if(!p)
-                return MallocCallback(c, byteSize);
+                return Malloc(c, byteSize);
             if(byteSize == 0)
             {
-                FreeCallback(c, p);
+                Free(c, p);
                 return NULL;
             }
 
             FastAllocator* context = (FastAllocator*)c;
-            return context->Realloc(p, byteSize);
+            return context->InternRealloc(p, byteSize);
         }
 
         static void FreeAll(void* c)
@@ -279,11 +290,7 @@ namespace Nstd
         static void Destroy(void* c)
         {
             FastAllocator* context = (FastAllocator*)c;
-            if(context->Memory.data)
-            {
-                NSTD_ALLOC_FREE(context->Memory.data);
-                context->Memory = {};
-            }
+            memset(context, 0, sizeof(FastAllocator));
         }
 
         static uint64 GetFreeBytes(const void* c)
@@ -292,19 +299,9 @@ namespace Nstd
             return context->Memory.len - context->UsedBytes;
         }
 
-        inline AllocatorPool MakeAllocatorPool()
+        inline Allocator MakeAllocator()
         {
-            AllocatorPool retAlloc = {};
-            retAlloc.Init(  ReserveAhead, 
-                            MallocCallback, 
-                            FreeCallback, 
-                            ReallocCallback, 
-                            FreeAll, 
-                            Destroy, 
-                            GetFreeBytes, 
-                            this, 
-                            true);
-            return retAlloc;
+            return Allocator::Init(Malloc, Free, Realloc, FreeAll, Destroy, GetFreeBytes, this);
         }
     };
 

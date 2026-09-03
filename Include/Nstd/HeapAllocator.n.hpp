@@ -1,23 +1,42 @@
-#ifndef NSTD_HEAP_ALLOCATOR_POOL_N_HPP
-#define NSTD_HEAP_ALLOCATOR_POOL_N_HPP
+#ifndef NSTD_HEAP_ALLOCATOR_N_HPP
+#define NSTD_HEAP_ALLOCATOR_N_HPP
 
 #include "ncpp.n.hpp"
-#include "./AllocatorPool.n.hpp"
+#include "./Allocator.n.hpp"
 
+#if !defined(NSTD_ALLOC_MALLOC) && !defined(NSTD_ALLOC_FREE) && !defined(NSTD_ALLOC_REALLOC)
+    #include <stdlib.h>
+    #define NSTD_ALLOC_MALLOC(sz) malloc(sz)
+    #define NSTD_ALLOC_FREE(p) free(p)
+    #define NSTD_ALLOC_REALLOC(p, sz) realloc(p, sz)
+#elif !defined(NSTD_ALLOC_MALLOC) || !defined(NSTD_ALLOC_FREE) || !defined(NSTD_ALLOC_REALLOC)
+    #error "You cannot partially define custom memory allocation macros"
+#endif
 
 namespace Nstd
 {
-    struct HeapAllocatorPool
+    inline void* Intern_Calloc(usize sz)
+    {
+        void* p = NSTD_ALLOC_MALLOC(sz);
+        if(!p)
+            return NULL;
+        memset(p, 0, sz);
+        return p;
+    }
+    
+    struct HeapAllocator
     {
         void** MemLookup;
         uint32 Len;
         uint32 Cap;
         
-        inline void Init(uint64 allocCount)
+        static inline HeapAllocator Init(uint64 allocCount)
         {
-            MemLookup = (void**)Intern_Calloc(allocCount * sizeof(void*));
-            Len = 0;
-            Cap = allocCount;
+            HeapAllocator alloc = {};
+            alloc.MemLookup = (void**)Intern_Calloc(allocCount * sizeof(void*));
+            alloc.Len = 0;
+            alloc.Cap = allocCount;
+            return alloc;
         }
         
         static inline uint32 GetKey(void* ptr, uint32 cap)
@@ -88,11 +107,9 @@ namespace Nstd
             return Cap;
         }
         
-        static void ReserveAhead(void*, uint64) {}
-        
         static void* Malloc(void* c, uint64 size)
         {
-            HeapAllocatorPool* context = (HeapAllocatorPool*)c;
+            HeapAllocator* context = (HeapAllocator*)c;
             if(context->Len + 1 >= context->Cap / 2)
             {
                 if(!context->Rehash())
@@ -108,7 +125,7 @@ namespace Nstd
         
         static void Free(void* c, void* ptr)
         {
-            HeapAllocatorPool* context = (HeapAllocatorPool*)c;
+            HeapAllocator* context = (HeapAllocator*)c;
             if(!ptr)
                 return;
             
@@ -123,7 +140,7 @@ namespace Nstd
         
         static void* Realloc(void* c, void* ptr, uint64 size)
         {
-            HeapAllocatorPool* context = (HeapAllocatorPool*)c;
+            HeapAllocator* context = (HeapAllocator*)c;
             uint32 k = context->Intern_GetKey(ptr);
             if(k == context->Cap)
                 return ptr;
@@ -144,7 +161,7 @@ namespace Nstd
         
         static void FreeAll(void* c)
         {
-            HeapAllocatorPool* context = (HeapAllocatorPool*)c;
+            HeapAllocator* context = (HeapAllocator*)c;
             for(uint32 i = 0; i < context->Cap; ++i)
             {
                 if(context->MemLookup[i])
@@ -157,34 +174,19 @@ namespace Nstd
         
         static void Destroy(void* c) 
         {
-            HeapAllocatorPool* context = (HeapAllocatorPool*)c;
+            HeapAllocator* context = (HeapAllocator*)c;
             FreeAll(context);
             NSTD_ALLOC_FREE(context->MemLookup);
-            memset(context, 0, sizeof(HeapAllocatorPool));
+            memset(context, 0, sizeof(HeapAllocator));
         }
         
-        static uint64 GetFreeBytes(const void*)
+        inline Allocator MakeAllocator()
         {
-            return 1024;
-        }
-        
-        inline AllocatorPool MakeAllocatorPool()
-        {
-            AllocatorPool retAlloc = {};
-            retAlloc.Init(  ReserveAhead, 
-                            Malloc, 
-                            Free, 
-                            Realloc, 
-                            FreeAll, 
-                            Destroy, 
-                            GetFreeBytes, 
-                            this, 
-                            true);
-            return retAlloc;
+            return Allocator::Init(Malloc, Free, Realloc, FreeAll, Destroy, NULL, this);
         }
     };
     
-    static_assert(n_is_simple(HeapAllocatorPool));
+    static_assert(n_is_simple(HeapAllocator));
 }
 
 

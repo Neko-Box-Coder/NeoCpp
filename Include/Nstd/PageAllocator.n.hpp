@@ -3,7 +3,7 @@
 
 #include "ncpp.n.hpp"
 #include "./BitView.n.hpp"
-#include "./AllocatorPool.n.hpp"
+#include "./Allocator.n.hpp"
 
 #include <string.h>
 #include <stddef.h>
@@ -672,6 +672,13 @@ namespace Nstd
             FreeBlocks(index);
             return fi;
         }
+        
+        bool OwnsPtr(void* ptr)
+        {
+            if(!ptr)
+                return false;
+            return ptr >= Blocks.data && ptr < Blocks.data + Blocks.len;
+        }
 
         static void FreeAll(void* c)
         {
@@ -733,27 +740,15 @@ namespace Nstd
             return &context->Blocks[ri * BLOCK_SIZE];
         }
         
-        static void ReserveAhead(void*, uint64) {}
-        
         static uint64 GetFreeBytes(const void* c)
         {
             const PageAllocator* context = (PageAllocator*)c;
             return (context->Control.Len() - context->UsedBlocksCount) * BLOCK_SIZE;
         }
         
-        inline AllocatorPool MakeAllocatorPool()
+        inline Allocator MakeAllocator()
         {
-            AllocatorPool retAlloc = {};
-            retAlloc.Init(  ReserveAhead, 
-                            Malloc, 
-                            Free, 
-                            Realloc, 
-                            FreeAll, 
-                            Destroy, 
-                            GetFreeBytes, 
-                            this, 
-                            true);
-            return retAlloc;
+            return Allocator::Init(Malloc, Free, Realloc, FreeAll, Destroy, GetFreeBytes, this);
         }
         
         #undef ASSERT_NODE_DEBUG

@@ -2,7 +2,7 @@
 #define NSTD_NODE_ALLOCATOR_N_HPP
 
 #include "ncpp.n.hpp"
-#include "./AllocatorPool.n.hpp"
+#include "./Allocator.n.hpp"
 
 #include <string.h>
 #include <stddef.h>
@@ -456,17 +456,13 @@ namespace Nstd
             //Cache the merged result
             CacheInsert(mergeIdx, mergeBlocks);
         }
-
-        void Destroy()
+        
+        bool OwnsPtr(void* ptr)
         {
-            if(Memory)
-            {
-                NSTD_ALLOC_FREE(Memory.data);
-                Memory = {};
-            }
+            if(!ptr)
+                return false;
+            return ptr >= Memory.data && ptr < Memory.data + Memory.len;
         }
-
-        static void ReserveAhead(void*, uint64) {}
 
         static void* Malloc(void* c, uint64 byteSize)
         {
@@ -541,10 +537,10 @@ namespace Nstd
             }
         }
 
-        static void DestroyAlloc(void* c)
+        static void Destroy(void* c)
         {
             NodeAllocator* context = (NodeAllocator*)c;
-            context->Destroy();
+            memset(context, 0, sizeof(NodeAllocator));
         }
 
         static uint64 GetFreeBytes(const void* c)
@@ -553,19 +549,9 @@ namespace Nstd
             return context->UsableBytes(context->FreeBlockCount);
         }
 
-        inline AllocatorPool MakeAllocatorPool()
+        inline Allocator MakeAllocator()
         {
-            AllocatorPool retAlloc = {};
-            retAlloc.Init(  ReserveAhead, 
-                            Malloc, 
-                            Free, 
-                            Realloc, 
-                            FreeAll, 
-                            DestroyAlloc, 
-                            GetFreeBytes, 
-                            this, 
-                            true);
-            return retAlloc;
+            return Allocator::Init(Malloc, Free, Realloc, FreeAll, Destroy, GetFreeBytes, this);
         }
     };
 }

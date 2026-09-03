@@ -31,7 +31,9 @@ IncludePaths:
 
 
 #include "Nstd/TaggedUnion.n.hpp"
-#include "Nstd/HeapAllocatorPool.n.hpp"
+#include "Nstd/HeapAllocator.n.hpp"
+#include "Nstd/FastAllocator.n.hpp"
+#include "Nstd/Allocator.n.hpp"
 #include "Nstd/AllocatorPool.n.hpp"
 #include "Nstd/List.n.hpp"
 #include "Nstd/LinkedList.n.hpp"
@@ -95,9 +97,9 @@ n_result<int> Main(int, char**)
             return 0;
     #endif
     
-    Nstd::HeapAllocatorPool h = {};
+    Nstd::HeapAllocator h = {};
     h.Init(32);
-    Nstd::AllocatorPool alloc = h.MakeAllocatorPool();
+    Nstd::Allocator alloc = h.MakeAllocator();
     n_defer { alloc.Destroy(); };
     
     //Nstd/TaggedUnion.n.hpp
@@ -124,15 +126,22 @@ n_result<int> Main(int, char**)
     
     //Nstd/Allocator.n.hpp
     {
-        int64_t* ints = alloc.Malloc<int64_t>(16); //Allocate 16 int64_t
+        n_view<int64_t> ints = alloc.Malloc<int64_t>(16); //Allocate 16 int64_t
         (void)ints;
         //...
         ints = alloc.Realloc<int64_t>(ints, 64); //Expands to 64 int64_t
-        char* chars = alloc.Malloc<char>(16);
+        n_view<char> chars = alloc.Malloc<char>(16);
         (void)chars;
         alloc.Free(ints);
         alloc.FreeAll();
         chars = alloc.Malloc<char>(4);
+    }
+    
+    {
+        
+        Nstd::AllocatorPool<Nstd::FastAllocator<>> AllocPool = AllocPool.Init(alloc, 64).n_try();
+        
+        
     }
     
     //Core/n_move.n.hpp

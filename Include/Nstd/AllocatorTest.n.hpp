@@ -53,11 +53,11 @@ namespace Nstd
 #define NSTD_ALLOC_MALLOC(sz) BenchMalloc(sz)
 #define NSTD_ALLOC_FREE(p) BenchFree(p)
 #define NSTD_ALLOC_REALLOC(p, sz) BenchRealloc(p, sz)
-#include "./HeapAllocatorPool.n.hpp"
+#include "./HeapAllocator.n.hpp"
 #include "./PageAllocator.n.hpp"
 #include "./NodeAllocator.n.hpp"
 #include "./FastAllocator.n.hpp"
-#include "./AllocatorPool.n.hpp"
+#include "./Allocator.n.hpp"
 
 #include "./External/msutimer/msutimer.h"
 #include "./External/msutimer/msutimer.c"
@@ -93,7 +93,7 @@ namespace Nstd
     };
     
     
-    inline uint32 PerformAllocations(   n_ref Nstd::AllocatorPool& alloc, 
+    inline uint32 PerformAllocations(   n_ref Nstd::Allocator& alloc, 
                                         n_view<void*> sv, 
                                         n_ref uint64& minMem,
                                         n_view<uint32> szv,
@@ -113,7 +113,7 @@ namespace Nstd
                         sv.data[i] = BenchMalloc(sizeof(int));
                     #endif
                 #else
-                    sv.data[i] = alloc.Malloc<int>(1);
+                    sv.data[i] = alloc.Malloc<int>(1).data;
                 #endif
                 
                 if(!sv.data[i])
@@ -131,7 +131,7 @@ namespace Nstd
                         sv.data[i] = BenchMalloc(sizeof(BVec3));
                     #endif
                 #else
-                    sv.data[i] = alloc.Malloc<BVec3>(1);
+                    sv.data[i] = alloc.Malloc<BVec3>(1).data;
                 #endif
                 
                 if(!sv.data[i])
@@ -149,7 +149,7 @@ namespace Nstd
                         sv.data[i] = BenchMalloc(sizeof(BVec3D));
                     #endif
                 #else
-                    sv.data[i] = alloc.Malloc<BVec3D>(1);
+                    sv.data[i] = alloc.Malloc<BVec3D>(1).data;
                 #endif
                 
                 if(!sv.data[i])
@@ -167,7 +167,7 @@ namespace Nstd
                         sv.data[i] = BenchMalloc(sizeof(BFatNode));
                     #endif
                 #else
-                    sv.data[i] = alloc.Malloc<BFatNode>(1);
+                    sv.data[i] = alloc.Malloc<BFatNode>(1).data;
                 #endif
                 
                 if(!sv.data[i])
@@ -185,7 +185,7 @@ namespace Nstd
                         sv.data[i] = BenchMalloc(1024);
                     #endif
                 #else
-                    sv.data[i] = alloc.Malloc<char>(1024); //1KB
+                    sv.data[i] = alloc.Malloc<char>(1024).data; //1KB
                 #endif
                 
                 if(!sv.data[i])
@@ -201,7 +201,7 @@ namespace Nstd
         return to;
     }
     
-    inline n_result<int64> Reallocs(n_ref Nstd::AllocatorPool& alloc, 
+    inline n_result<int64> Reallocs(n_ref Nstd::Allocator& alloc, 
                                     n_view<void*> sv, 
                                     n_ref uint64& minMem,
                                     n_view<uint32> szv,
@@ -227,7 +227,8 @@ namespace Nstd
                             sv.data[f] = BenchRealloc(sv.data[f], szv.data[f] * 2);
                         #endif
                     #else
-                        sv.data[f] = alloc.Realloc<char>(sv.data[f], szv.data[f] * 2);
+                        sv.data[f] = alloc.Realloc<char>(   n_view<char>((char*)sv.data[f], 1), 
+                                                            szv.data[f] * 2).data;
                     #endif
                     
                     ++reallocCount;
@@ -246,7 +247,8 @@ namespace Nstd
                             sv.data[f] = BenchRealloc(sv.data[f], szv.data[f] / 2);
                         #endif
                     #else
-                        sv.data[f] = alloc.Realloc<char>(sv.data[f], szv.data[f] / 2);
+                        sv.data[f] = alloc.Realloc<char>(   n_view<char>((char*)sv.data[f], 1), 
+                                                            szv.data[f] / 2).data;
                     #endif
                     
                     ++reallocCount;
@@ -295,7 +297,7 @@ namespace Nstd
         return {};
     }
     
-    inline void Free(   n_ref Nstd::AllocatorPool& alloc, 
+    inline void Free(   n_ref Nstd::Allocator& alloc, 
                         uint32 allocFrom, 
                         uint32 allocTo, 
                         n_view<void*> sv, 
@@ -356,28 +358,28 @@ namespace Nstd
         #else
             n_view<uint8> backing = n_view<uint8>((uint8*)NSTD_ALLOC_MALLOC(7 MB), 7 MB);
             
-            #if 0
-                Nstd::HeapAllocatorPool h = {};
+            #if 1
+                Nstd::HeapAllocator h = {};
                 h.Init(BENCH_SAMPLE_N);
-                Nstd::AllocatorPool alloc = h.MakeAllocatorPool();
+                Nstd::Allocator alloc = h.MakeAllocator();
             #endif
             
             #if 0
                 Nstd::PageAllocator<16> p = {};
                 p.Init(backing).n_try();
-                Nstd::AllocatorPool alloc = p.MakeAllocatorPool();
+                Nstd::Allocator alloc = p.MakeAllocator();
             #endif
             
             #if 0
                 Nstd::NodeAllocator<> n = {};
                 n.Init(backing).n_try();
-                Nstd::AllocatorPool alloc = n.MakeAllocatorPool();
+                Nstd::Allocator alloc = n.MakeAllocator();
             #endif
 
-            #if 1
+            #if 0
                 Nstd::FastAllocator<> f = {};
                 f.Init(backing).n_try();
-                Nstd::AllocatorPool alloc = f.MakeAllocatorPool();
+                Nstd::Allocator alloc = f.MakeAllocator();
             #endif
         #endif
         double initReserveEnd = msutimer_gettime(timer);

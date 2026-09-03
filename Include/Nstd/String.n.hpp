@@ -46,7 +46,7 @@ namespace Nstd
     {
         List<char> Intern_Chars;
         
-        inline String Init(n_ref AllocatorPool& alloc, uint64 reserveSize)
+        inline String Init(Allocator alloc, uint64 reserveSize)
         {
             Intern_Chars = Intern_Chars.Init(alloc, reserveSize + 1);
             Intern_Chars.Add('\0');
@@ -88,7 +88,7 @@ namespace Nstd
             return {};
         }
         
-        inline String InitString(n_ref AllocatorPool& alloc, n_view<const char> v)
+        inline String InitString(Allocator alloc, n_view<const char> v)
         {
             String s = s.Init(alloc, v.len);
             s.AppendString(v);

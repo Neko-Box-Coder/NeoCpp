@@ -2,7 +2,7 @@
 #define NSTD_HASHMAP_N_HPP
 
 #include "ncpp.n.hpp"
-#include "./AllocatorPool.n.hpp"
+#include "./Allocator.n.hpp"
 #include "./KeyValue.n.hpp"
 
 #define HASH_NONFATAL_OOM 1
@@ -13,8 +13,8 @@
 #undef uthash_free
 
 /* re-define, specifying alternate functions */
-#define uthash_malloc(sz) Alloc->Malloc<char>(sz)
-#define uthash_free(ptr, sz) Alloc->Free(ptr)
+#define uthash_malloc(sz) Alloc.Malloc<char>(sz).data
+#define uthash_free(ptr, sz) Alloc.Free(ptr)
 
 #include <string.h>
 
@@ -32,13 +32,13 @@ namespace Nstd
     template<typename T>
     struct Hashmap
     {
-        AllocatorPool* Alloc;
+        Allocator Alloc;
         HashNode<T>* Nodes;
     
-        inline Hashmap<T> Init(n_ref AllocatorPool& alloc) 
+        inline Hashmap<T> Init(Allocator alloc)
         { 
             Hashmap<T> h;
-            h.Alloc = &alloc;
+            h.Alloc = alloc;
             h.Nodes = NULL;
             return h;
         }
@@ -47,13 +47,13 @@ namespace Nstd
         inline n_result<void> AddValues(KeyValue<T> keyval, Ts... keyvals)
         {
             n_use_error_defer();
-            n_check_true(Alloc);
+            n_check_true(Alloc.ContextMalloc);
             
             KeyValue<T>* arr[] = { &keyval, &keyvals... };
             
-            HashNode<T>* nodes = Alloc->Malloc<HashNode<T>>(n_array_cap(arr));
-            n_check_true(nodes);
-            n_error_defer { free(nodes); };
+            n_view<HashNode<T>> nodes = Alloc.Malloc<HashNode<T>>(n_array_cap(arr));
+            n_check_true((bool)nodes);
+            n_error_defer { Alloc.Free(nodes); };
             
             for(int i = 0; i < n_array_cap(arr); ++i)
                 n_check_true(arr[i]->Key.data && arr[i]->Key.len);
@@ -71,7 +71,7 @@ namespace Nstd
         }
         
         template<typename... Ts>
-        inline Hashmap InitValues(n_ref AllocatorPool& alloc, Ts... values)
+        inline Hashmap InitValues(Allocator alloc, Ts... values)
         {
             Hashmap h = Init(alloc);
             h.AddValues(values...);
@@ -80,22 +80,21 @@ namespace Nstd
         
         inline n_result<void> Add(n_view<const char> key, T value)
         {
-            n_check_true(Alloc);
+            n_check_true(Alloc.ContextMalloc);
             n_check_true((bool)key);
             
-            HashNode<T>* n = Alloc->Malloc<HashNode<T>>(1);
-            n_check_true(n);
-            n->Key = key;
-            n->Value = value;
-            n->Batched = false;
+            n_view<HashNode<T>> n = Alloc.Malloc<HashNode<T>>(1);
+            n_check_true((bool)n);
+            n[0].Key = key;
+            n[0].Value = value;
+            n[0].Batched = false;
             
-            HASH_ADD_KEYPTR(hh, Nodes, n->Key.data, n->Key.len, n);
+            HASH_ADD_KEYPTR(hh, Nodes, n[0].Key.data, n[0].Key.len, n.data);
             return {};
         }
 
         inline n_result<HashNode<T>*> Find(n_view<const char> key)
         {
-            n_check_true(Alloc);
             if(!key)
                 return NULL;
             
@@ -106,13 +105,13 @@ namespace Nstd
         
         inline n_result<void> Remove(n_ref HashNode<T>*& node) 
         {
-            n_check_true(Alloc);
+            n_check_true(Alloc.ContextFree);
             n_check_true(node);
             n_check_true(Nodes);
             
             HASH_DEL(Nodes, node);
             if(!node->Batched)
-                Alloc->Free(node);
+                Alloc.Free(node);
             
             node = NULL;
             return {};
@@ -120,22 +119,21 @@ namespace Nstd
         
         inline n_result<void> Reserve(uint64 size)
         {
-            n_check_true(Alloc);
-            Alloc->ReserveAhead<HashNode<T>>(size);
+            //n_check_true(Alloc);
+            //Alloc.ReserveAhead<HashNode<T>>(size);
             return {};
         }
         
         inline n_result<void> AddRange(n_view<KeyValue<T>> keyValues)
         {
-            n_check_true(Alloc);
+            n_check_true(Alloc.ContextMalloc);
             n_use_error_defer();
             if(!keyValues)
                 return {};
             
-            HashNode<T>* nodes = Alloc->Malloc<HashNode<T>>(keyValues.len);
-            n_check_true(nodes);
-            n_error_defer { free(nodes); };
-            
+            n_view<HashNode<T>> nodes = Alloc.Malloc<HashNode<T>>(keyValues.len);
+            n_check_true((bool)nodes);
+            n_error_defer { Alloc.Free(nodes); };
             
             for(int i = 0; i < keyValues.len; ++i)
                 n_check_true(keyValues.data[i].Key.data && keyValues.data[i].Key.len);
@@ -154,7 +152,6 @@ namespace Nstd
         
         inline n_result<usize> Len()
         {
-            n_check_true(Alloc);
             return HASH_COUNT(Nodes);
         }
         
@@ -172,7 +169,7 @@ namespace Nstd
         
         inline n_result<void> Free()
         {
-            n_check_true(Alloc);
+            n_check_true(Alloc.ContextFree);
             
             HashNode<T>* curNode = NULL;
             HashNode<T>* tmp = NULL;
@@ -180,7 +177,7 @@ namespace Nstd
             {
                 HASH_DEL(Nodes, curNode);
                 if(!curNode->Batched)
-                    Alloc->Free(curNode);
+                    Alloc.Free(curNode);
             }
             
             Nodes = NULL;
