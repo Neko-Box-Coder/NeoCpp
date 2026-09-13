@@ -91,14 +91,13 @@ n_result<int> TestCheckFmt(int v)
 
 n_result<int> Main(int, char**)
 {
-    #if 1
+    #if 0
         Nstd::BenchmarkAllocatorsMain().n_try();
         if(true)
             return 0;
     #endif
     
-    Nstd::HeapAllocator h = {};
-    h.Init(32);
+    Nstd::HeapAllocator h = h.Init(32);
     Nstd::Allocator alloc = h.MakeAllocator();
     n_defer { alloc.Destroy(); };
     
