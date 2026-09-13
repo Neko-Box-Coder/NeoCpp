@@ -59,15 +59,19 @@ namespace ncpp
             memset(data, 0, sizeof(T) * len);
         }
         
-        inline void copy(n_view<T> dst, usize offset) const
+        template<typename T2 = T, typename T3 = n_no_const(T)>
+        inline void copy_to(n_view<T3> dst, usize offset) const
         {
+            if(!len || !data)
+                return;
+            
             n_assert(   data && 
                         len && 
                         dst.data && 
                         dst.len && 
                         USIZE_MAX - len >= offset && 
                         offset + len <= dst.len);
-            memcpy(dst.data, data, sizeof(T) * len);
+            memcpy(dst.data + offset, data, sizeof(T) * len);
         }
         
         template<bool ASSERT = true>
