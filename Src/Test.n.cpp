@@ -42,6 +42,7 @@ IncludePaths:
 #include "Nstd/Atomic.n.hpp"
 #include "Nstd/Any.n.hpp"
 #include "Nstd/Threads.n.hpp"
+#include "Nstd/Filesystem.n.hpp"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -137,7 +138,7 @@ n_result<int> Main(int, char**)
     }
     
     {
-        
+        //TODO
         Nstd::AllocatorPool<Nstd::FastAllocator<>> AllocPool = AllocPool.Init(n_ref alloc, 64).n_try();
         
         
@@ -161,6 +162,10 @@ n_result<int> Main(int, char**)
         
         printf("n_array_at(a, 0): %d\n", n_array_at(a, 0));
         printf("n_array_at(a, 5): %d\n", n_array_at(a, 5));
+        
+        n_array<int, 3> d = {1, 2, 3};
+        n_view<const int> dv = d.to_view();
+        (void)dv;
     }
     
     //Core/n_result.n.hpp
@@ -232,7 +237,7 @@ n_result<int> Main(int, char**)
     
     //Nstd/LinkedList.n.hpp
     {
-        
+        //TODO
     }
     
     //Nstd/Hashmap.n.hpp
@@ -311,7 +316,6 @@ n_result<int> Main(int, char**)
         s.RemoveString("Test3").n_try();
         printf("String: \"%s\" with len %" PRIu64 "\n", s.Data(), s.Len());
     
-        //s.AppendFormat("Hello {}", 1).n_try();
         s.AppendFormat("Hello {-10}", "World").n_try();
         printf("String: \"%s\" with len %" PRIu64 "\n", s.Data(), s.Len());
         
@@ -329,22 +333,6 @@ n_result<int> Main(int, char**)
         printf("String: \"%s\" with len %" PRIu64 "\n", s.Data(), s.Len());
     }
     
-    
-    {
-        char a[] = "abc";
-        n_view<char> v = a;
-        (void)v;
-        //n_view<const char> v = "Abc";
-        //(void)TTTT(v);
-        
-        int b[] = {1, 2, 3};
-        
-        n_view<const int> v2 = n_array_to_view(b);
-        (void)v2;
-        //n_view<int> v3 = v2;
-        //(void)v3;
-    }
-    
     //Nstd/Atomic.n.hpp
     {
         Nstd::Atomic<int8> a;
@@ -359,6 +347,111 @@ n_result<int> Main(int, char**)
         a.Xor(5); //14
         a.And(1); //15
         n_check_eq(a.Load(), 15);
+    }
+    
+    
+    //Nstd/Filesystem.n.hpp
+    {
+        //Write a test file
+        n_view<const char> testData = "Hello from Nstd Filesystem!\n";
+        Nstd::FileWriteAll("../fs_test.txt", testData.as<const uint8>()).n_try();
+
+        //Read it back
+        Nstd::List<uint8> content = Nstd::FileReadAll(alloc, "../fs_test.txt").n_try();
+        n_check_true(content.ToView().as<const char>() == testData);
+        
+        //Check path exists
+        bool exists = Nstd::PathExists("../fs_test.txt").n_try();
+        n_check_true(exists);
+
+        //Open file manually
+        Nstd::File f = Nstd::FileOpen("../fs_test.txt", "rb").n_try();
+        n_defer { (void)f.Close(); };
+
+        int64_t pos = f.Tell().n_try();
+        n_check_eq(pos, 0);
+
+        n_array<uint8, 10> buf;
+        buf.zero();
+        usize bytesRead;
+        f.Read(buf.to_view(), n_ref bytesRead).n_try();
+        n_check_true(testData.sub(0, 10) == buf.to_view().as<const char>());
+        
+        pos = f.Tell().n_try();
+        n_check_eq(pos, 10);
+
+        //Seek back to start
+        f.Seek(0).n_try();
+        pos = f.Tell().n_try();
+        n_check_eq(pos, 0);
+
+        //List directory
+        Nstd::DirIterator dir = Nstd::OpenDirectory("..").n_try();
+        n_defer { dir.Close(); };
+
+        while(true)
+        {
+            bool hasMore = dir.Next().n_try();
+            if(!hasMore) break;
+
+            Nstd::DirEntry entry = dir.Current().n_try();
+            printf("  %s%s\n", entry.Name.data, entry.IsDirectory ? "/" : "");
+        }
+
+        //Create & delete directory test
+        Nstd::CreateDirectory("../fs_test_dir").n_try();
+        bool isDir = Nstd::IsDirectory("../fs_test_dir").n_try();
+        n_check_true(isDir);
+
+        //Create nested structure for DeleteDirectory test
+        n_view<const char> delDirData = "test content\n";
+        
+        Nstd::CreateDirectory("../fs_test_dir/sub1").n_try();
+        Nstd::CreateDirectory("../fs_test_dir/sub2").n_try();
+        Nstd::CreateDirectory("../fs_test_dir/sub1/deep").n_try();
+        
+        //Write files at various levels
+        Nstd::FileWriteAll("../fs_test_dir/file1.txt", delDirData.as<const uint8>()).n_try();
+        Nstd::FileWriteAll("../fs_test_dir/sub1/file2.txt", delDirData.as<const uint8>()).n_try();
+        Nstd::FileWriteAll("../fs_test_dir/sub1/deep/file3.txt", delDirData.as<const uint8>()).n_try();
+        Nstd::FileWriteAll("../fs_test_dir/sub2/file4.txt", delDirData.as<const uint8>()).n_try();
+        
+        //Verify structure exists before deletion
+        {
+            bool pathExists = Nstd::PathExists("../fs_test_dir").n_try();
+            n_check_true(pathExists);
+            
+            bool deepExists = Nstd::PathExists("../fs_test_dir/sub1/deep/file3.txt").n_try();
+            n_check_true(deepExists);
+        }
+        
+        //Delete entire tree iteratively
+        Nstd::DeleteDirectory(n_ref alloc, "../fs_test_dir").n_try();
+        
+        //Verify everything is gone
+        {
+            bool stillExists = Nstd::PathExists("../fs_test_dir").n_try();
+            n_check_false(stillExists);
+        }
+
+        //Rename test - rename a file
+        {
+            Nstd::FileWriteAll("../fs_rename_src.txt", delDirData.as<const uint8>()).n_try();
+            Nstd::Rename("../fs_rename_src.txt", "../fs_rename_dst.txt").n_try();
+            
+            bool srcGone = Nstd::PathExists("../fs_rename_src.txt").n_try();
+            n_check_false(srcGone);
+            
+            bool dstExists = Nstd::PathExists("../fs_rename_dst.txt").n_try();
+            n_check_true(dstExists);
+            
+            Nstd::DeleteFile("../fs_rename_dst.txt").n_try();
+        }
+        
+        //Cleanup
+        Nstd::DeleteFile("../fs_test.txt").n_try();
+        exists = Nstd::PathExists("../fs_test.txt").n_try();
+        n_check_false(exists);
     }
     
     return 0;

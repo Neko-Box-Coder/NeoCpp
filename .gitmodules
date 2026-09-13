@@ -19,3 +19,6 @@
 [submodule "cthreads"]
 	path = Include/Nstd/External/cthreads
 	url = https://github.com/pbotmeyertron/cthreads.git
+[submodule "Include/Nstd/External/TinyDir"]
+	path = Include/Nstd/External/TinyDir
+	url = https://github.com/cxong/tinydir.git
