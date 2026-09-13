@@ -1,5 +1,8 @@
 //NOTE: Commit: d3b984684bb8
 
+#ifndef PRINTF_HPP
+#define PRINTF_HPP
+
 ///////////////////////////////////////////////////////////////////////////////
 // \author (c) Marco Paland (info@paland.com)
 //             2014-2019, PALANDesign Hannover, Germany
@@ -915,3 +918,5 @@ static int fctprintf(void (*out)(char character, void* arg), void* arg, const ch
   va_end(va);
   return ret;
 }
+
+#endif
