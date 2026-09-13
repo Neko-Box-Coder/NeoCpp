@@ -311,7 +311,22 @@ n_result<int> Main(int, char**)
         s.RemoveString("Test3").n_try();
         printf("String: \"%s\" with len %" PRIu64 "\n", s.Data(), s.Len());
     
-        s.AppendFormat("Hello {}", 1).n_try();
+        //s.AppendFormat("Hello {}", 1).n_try();
+        s.AppendFormat("Hello {-10}", "World").n_try();
+        printf("String: \"%s\" with len %" PRIu64 "\n", s.Data(), s.Len());
+        
+        
+        s.AppendFormat(" Int32: {}", (int32)95535).n_try();
+        printf("String: \"%s\" with len %" PRIu64 "\n", s.Data(), s.Len());
+        
+        s.AppendFormat(" UInt16: {}", (uint16)55335).n_try();
+        printf("String: \"%s\" with len %" PRIu64 "\n", s.Data(), s.Len());
+        
+        s.AppendFormat(" Float: {}", 5.5f).n_try();
+        printf("String: \"%s\" with len %" PRIu64 "\n", s.Data(), s.Len());
+        
+        s.AppendFormat(" Double: {}", 10.10).n_try();
+        printf("String: \"%s\" with len %" PRIu64 "\n", s.Data(), s.Len());
     }
     
     

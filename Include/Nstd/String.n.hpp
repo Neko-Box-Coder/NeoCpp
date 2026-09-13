@@ -38,6 +38,7 @@ struct String
 #include "./Allocator.n.hpp"
 #include "./List.n.hpp"
 
+#include "../Core/External/printf.hpp"
 #include <string.h>
 
 namespace Nstd
@@ -88,9 +89,9 @@ namespace Nstd
             return {};
         }
         
-        inline String InitString(Allocator alloc, n_view<const char> v)
+        inline String InitString(n_ref Allocator& alloc, n_view<const char> v)
         {
-            String s = s.Init(alloc, v.len);
+            String s = s.Init(n_ref alloc, v.len);
             s.AppendString(v);
             return s;
         }
@@ -210,27 +211,84 @@ namespace Nstd
             return Len();
         }
         
-        #if 1
-        inline n_result<void> Intern_AppendBase(n_view<const char> format, 
-                                                n_ref int& index, 
-                                                const char* arg)
+        inline n_result<void> Intern_AppendFormatBase(  n_view<const char> format, 
+                                                        n_ref int& index, 
+                                                        const char* arg)
         {
+            Intern_AppendFormatBase(format, index, n_view<const char>(arg)).n_try();
             return {};
         }
         
-        inline n_result<void> Intern_AppendBase(n_view<const char> format, 
-                                                n_ref int& index, 
-                                                n_view<const char> arg)
+        inline n_result<void> Intern_AppendFormatBase(  n_view<const char> format, 
+                                                        n_ref int& index, 
+                                                        n_view<const char> arg)
         {
+            n_check_lt(format.len, 28);
+            n_check_lt(arg.len, INT_MAX);
+            
+            char formatCloneArr[32] = "%";
+            n_view<char> formatClone = n_array_to_view(formatCloneArr);
+            usize l = 1;
+            
+            n_check_gte(format.len, 2);
+            format.sub(1, format.len - 2).copy_to(formatClone, 1);
+            l += format.len - 2;
+            
+            formatClone[l++] = '.';
+            formatClone[l++] = '*';
+            formatClone[l++] = 's';
+            int lenNeeded = snprintf_(NULL, 0, formatClone.data, (int)arg.len, arg);
+            uint64 start = Len();
+            Resize(start + lenNeeded).n_try();
+            
+            n_check_eq_fmt( snprintf_(&At(start), lenNeeded + 1, formatClone.data, (int)arg.len, arg), 
+                            lenNeeded,
+                            "Format substitution failed at %i", 
+                            index);
             return {};
         }
         
-        inline n_result<void> Intern_AppendBase(n_view<const char> format, 
-                                                n_ref int& index, 
-                                                int arg)
-        {
-            return {};
-        }
+        #define INTERN_FORMAT_BASE(argType, formatStr) \
+            inline n_result<void> Intern_AppendFormatBase(  n_view<const char> format, \
+                                                            n_ref int& index, \
+                                                            argType arg) \
+            { \
+                const usize formatLen = strlen("%" formatStr); \
+                n_check_lt(format.len, 32 - formatLen); \
+                \
+                char formatCloneArr[32] = "%"; \
+                n_view<char> formatClone = n_array_to_view(formatCloneArr); \
+                usize l = 1; \
+                \
+                n_check_gte(format.len, 2); \
+                format.sub(1, format.len - 2).copy_to(formatClone, 1); \
+                l += format.len - 2; \
+                \
+                for(int i = 0; i < formatLen - 1; ++i) \
+                    formatClone[l++] = formatStr [i]; \
+                \
+                int lenNeeded = snprintf_(NULL, 0, formatClone.data, arg); \
+                uint64 start = Len(); \
+                Resize(start + lenNeeded).n_try(); \
+                \
+                n_check_eq_fmt( snprintf_(&At(start), lenNeeded + 1, formatClone.data, arg), \
+                                lenNeeded, \
+                                "Format substitution failed at %i", \
+                                index); \
+                return {}; \
+            }
+        
+        INTERN_FORMAT_BASE(uint8, PRIu8)
+        INTERN_FORMAT_BASE(uint16, PRIu16)
+        INTERN_FORMAT_BASE(uint32, PRIu32)
+        INTERN_FORMAT_BASE(uint64, PRIu64)
+        
+        INTERN_FORMAT_BASE(int8, PRIi8)
+        INTERN_FORMAT_BASE(int16, PRIi16)
+        INTERN_FORMAT_BASE(int32, PRIi32)
+        INTERN_FORMAT_BASE(int64, PRIi64)
+        
+        INTERN_FORMAT_BASE(double, "f")
         
         inline n_result<void> Intern_AppendFormat(n_view<const char> format, n_ref int& index)
         {
@@ -292,7 +350,7 @@ namespace Nstd
                     if(i != format.len - 1 && format.at<false>(i + 1) == '}')
                         return n_error_msg("Unexpected } found in substitution at %i", index);
                     
-                    Intern_AppendBase(format.sub(s, i + 1 - s), index, arg).n_try();
+                    Intern_AppendFormatBase(format.sub(s, i + 1 - s), index, arg).n_try();
                     s = ++i;
                     break;
                 }
@@ -317,7 +375,6 @@ namespace Nstd
             Intern_AppendFormat(format, index, args...).n_try();
             return {};
         }
-        #endif
         
         inline n_result<uint64> RemoveString(n_view<const char> v)
         {
