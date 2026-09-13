@@ -137,7 +137,7 @@ namespace ncpp
         }
         
         template<typename T2, bool ASSERT = true>
-        inline void write(usize index, const T2& var) const
+        inline void write(usize index, const T2& var)
         {
             if(ASSERT)
                 n_assert(data && len && index * sizeof(T) + sizeof(T2) <= len * sizeof(T));
