@@ -53,7 +53,9 @@ namespace ncpp
         
         inline void zero()
         {
-            n_assert(!data || !len);
+            if(!data || !len)
+                return;
+            
             memset(data, 0, sizeof(T) * len);
         }
         
