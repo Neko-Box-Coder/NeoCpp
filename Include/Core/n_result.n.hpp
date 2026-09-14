@@ -207,6 +207,7 @@ Stack trace:
 
 #include "./n_type.n.hpp"
 #include "./n_defer.n.hpp"
+#include "./n_lint.n.hpp"
 #include "./External/printf.hpp"
 
 #if NCCP_NO_PATH
@@ -351,6 +352,7 @@ namespace ncpp
             }
         }
         
+        //TODO: Change this to use the {} syntax instead
         #define error_info_create(...) \
             ncpp::n_error_info::create \
             < \

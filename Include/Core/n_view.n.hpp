@@ -1,7 +1,6 @@
 #ifndef NCPP_N_VIEW_N_HPP
 #define NCPP_N_VIEW_N_HPP
 
-#include "./n_array.n.hpp"
 #include "./n_type.n.hpp"
 #include "./n_assert.n.hpp"
 
@@ -60,7 +59,7 @@ namespace ncpp
         }
         
         template<typename T2 = T, typename T3 = n_no_const(T)>
-        inline void copy_to(n_view<T3> dst, usize offset) const
+        inline void copy_to(n_view<T3> dst, usize offset = 0) const
         {
             if(!len || !data)
                 return;
@@ -160,8 +159,6 @@ namespace ncpp
         inline T& operator[](usize index) { return at<true>(index); }
         inline const T& operator[](usize index) const { return at<true>(index); }
     };
-    
-    #define n_array_to_view(arr) ncpp::n_view<n_no_ref( n_typeof(arr[0]) )> { arr, n_array_cap(arr) }
     
     static_assert(n_is_simple(n_view<char>), "");
 }
