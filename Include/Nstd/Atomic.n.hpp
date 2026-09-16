@@ -1,6 +1,68 @@
 #ifndef NSTD_ATOMIC_N_HPP
 #define NSTD_ATOMIC_N_HPP
 
+/*
+API:
+```c++
+enum MEMORY_ORDER
+{
+    MEMORY_ORDER_NONE = 1,
+    MEMORY_ORDER_LOAD = 3,
+    MEMORY_ORDER_STORE = 4,
+    MEMORY_ORDER_LOAD_STORE = 5,
+    MEMORY_ORDER_GLOBAL = 6
+};
+
+//NOTE: T must be either int8, int16, int32, int64, uint8, uint16, uint32, uint64.
+template<typename T>
+struct Atomic
+{
+    inline T Exchange(T replace, MEMORY_ORDER order = MEMORY_ORDER_GLOBAL);
+    inline void Store(T store, MEMORY_ORDER order = MEMORY_ORDER_GLOBAL);
+
+    inline T Load(MEMORY_ORDER order = MEMORY_ORDER_GLOBAL);
+    
+    template<bool STRONG = true>
+    inline T StoreIfEqual(T test, T expected, MEMORY_ORDER order = MEMORY_ORDER_GLOBAL);
+    
+    template<bool STRONG = true>
+    inline T Add(T addVal, MEMORY_ORDER order = MEMORY_ORDER_GLOBAL);
+    
+    template<bool STRONG = true>
+    inline T Sub(T subVal), MEMORY_ORDER order = MEMORY_ORDER_GLOBAL;
+    
+    template<bool STRONG = true>
+    inline T Or(T orVal, MEMORY_ORDER order = MEMORY_ORDER_GLOBAL);
+    
+    template<bool STRONG = true>
+    inline T Xor(T xorVal, MEMORY_ORDER order = MEMORY_ORDER_GLOBAL);
+    
+    template<bool STRONG = true>
+    inline T And(T andVal, MEMORY_ORDER order = MEMORY_ORDER_GLOBAL);
+};
+
+struct AtomicSignal
+{
+    inline bool GetPreviousAndSignal(MEMORY_ORDER order = MEMORY_ORDER_GLOBAL);
+    inline void Clear(MEMORY_ORDER order = MEMORY_ORDER_GLOBAL);
+}
+```
+
+Usage:
+```c++
+{
+    Nstd::Atomic<int8> a;
+    a.Store(6);
+    int8 b = a.Load();
+    b = a.Exchange(8);
+    
+    a.Add(5);
+    a.Sub(3);
+    n_check_eq(a.Load(), 8);
+}
+```
+*/
+
 #include "ncpp.n.hpp"
 
 #include "./External/c89atomic/c89atomic.h"

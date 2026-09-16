@@ -1,6 +1,27 @@
 #ifndef NSTD_FAST_ALLOCATOR_N_HPP
 #define NSTD_FAST_ALLOCATOR_N_HPP
 
+/*
+API:
+```c++
+template<usize BLOCK_SIZE = 16>
+struct FastAllocator
+{
+    inline n_result<void> Init(n_view<uint8> backing);
+    inline Allocator MakeAllocator();
+};
+```
+
+Usage:
+```c++
+{
+    n_array<uint8, 1024> backing;
+    Nstd::FastAllocator<> fa = fa.Init(backing.to_view()).n_try();
+    Nstd::Allocator alloc = fa.MakeAllocator();
+}
+```
+*/
+
 #include "ncpp.n.hpp"
 #include "./Allocator.n.hpp"
 

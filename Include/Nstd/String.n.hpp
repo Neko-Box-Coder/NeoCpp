@@ -8,14 +8,12 @@ struct String
 {
     List<char> Intern_Chars;
     
-    inline String Init(n_ref AllocatorPool& alloc, uint64 reserveSize);
+    inline String Init(n_ref Allocator& alloc, uint64 reserveSize);
     inline char* Data();
     inline const char* Data() const;
     inline uint64 Len() const;
-    inline n_result<void> AppendCString(const char* cs);
-    inline n_result<void> AppendStringView(View<char> v);
-    inline String InitCString(n_ref AllocatorPool& alloc, const char* cs);
-    inline String InitStringView(n_ref AllocatorPool& alloc, View<char> v);
+    inline n_result<void> AppendString(n_view<const char> v);
+    inline String InitString(n_ref Allocator& alloc, n_view<const char> v);
     inline char& At(uint64 index);
     inline char At(uint64 index) const;
     inline n_result<void> Reserve(uint64 size);
@@ -23,11 +21,16 @@ struct String
     inline n_result<void> Add(char c);
     inline n_result<void> Insert(uint64 index, char c);
     inline n_result<void> Remove(uint64 index);
-    inline n_result<void> InsertStringView(uint64 index, View<char> view);
-    inline n_result<void> InsertCString(const char* cs);
+    inline n_result<void> InsertString(uint64 index, n_view<const char> v);
     inline n_result<void> RemoveRange(uint64 index, uint64 len);
-    inline n_result<uint64> FindStringView(View<char> view);
-    inline n_result<uint64> FindCString(const char* cs);
+    inline uint64 FindString(n_view<const char> v, uint64 startIndex = 0) const;
+    inline n_result<uint64> ReverseFindString(n_view<char> v, uint64 startIndex);
+    
+    template<typename... Ts>
+    inline n_result<void> AppendFormat(n_view<const char> format, Ts... args);
+    inline n_result<uint64> RemoveString(n_view<const char> v);
+    inline n_view<char> ToView();
+    inline n_view<const char> ToView() const;
     inline n_result<void> Free();
 };
 ```

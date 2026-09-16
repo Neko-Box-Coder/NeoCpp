@@ -2,6 +2,33 @@
 #define NCPP_N_ARRAY_N_HPP
 
 /*
+API:
+```c++
+//Macros
+#define n_typeof(x)        //Decltype of x
+#define n_array_cap(arr)   //Capacity of a static array
+#define n_array_at(arr, i) //Safe index access with default fallback
+#define n_array_to_view(arr)//Convert to n_view
+
+template<typename T, usize Len>
+struct n_array
+{
+    T data[Len];
+    static constexpr usize len;
+
+    inline void zero();
+    
+    template<bool ASSERT = true>
+    inline T& at(usize index);
+    
+    template<bool ASSERT = true>
+    inline const T& at(usize index) const;
+    
+    inline T& operator[](usize index);
+    inline n_view<T> to_view();
+};
+```
+
 Usage:
 ```c++
 {

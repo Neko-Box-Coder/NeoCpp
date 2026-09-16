@@ -1,6 +1,63 @@
 #ifndef NCPP_N_VIEW_N_HPP
 #define NCPP_N_VIEW_N_HPP
 
+/*
+API:
+```c++
+template<typename T>
+struct n_view
+{
+    T* data;
+    usize len;
+
+    inline n_view();
+    inline n_view(T* d, usize l);
+    
+    inline n_view(const n_view<T>& other);
+    inline n_view(const n_view<const T>& other);
+    
+    inline n_view(const char* c);
+
+    inline n_view<T> sub(usize index, usize l);
+    inline void zero();
+    inline void copy_to(n_view<T> dst, usize offset = 0) const;
+    
+    template<bool ASSERT = true>
+    inline T& at(usize index);
+
+    template<typename T2>
+    inline n_view<T2> as();
+    
+    template<typename T2>
+    inline n_view<const T2> as();
+
+    template<typename T2, bool ASSERT = true>
+    inline T2 read(usize index) const;
+    
+    template<typename T2, bool ASSERT = true>
+    inline void write(usize index, const T2& var);
+    
+    inline bool operator==(const n_in n_view<T>& other);
+    
+    inline operator bool() const;
+    inline bool operator!() const;
+    inline T& operator[](usize index);
+};
+```
+
+Usage:
+```c++
+{
+    int arr[] = {1, 2, 3, 4, 5};
+    n_view<int> v = {arr, n_array_cap(arr)};
+    n_view<const int> sub = v.sub(1, 3); //points to {2, 3, 4}
+    
+    char str[] = "Hello";
+    n_view<char> sv = {str, strlen(str)};
+}
+```
+*/
+
 #include "./n_type.n.hpp"
 #include "./n_assert.n.hpp"
 

@@ -2,11 +2,18 @@
 #define NCPP_N_MOVE_N_HPP
 
 /*
+API:
+```c++
+//Zeros out src and returns the value
+template<typename T>
+inline T n_move(n_ref T& src);
+```
+
 Usage:
 ```c++
 {
     int a = 3;
-    int b = nmove(nref a);
+    int b = n_move(n_ref a);
     printf("a: %d, b: %d\n", a, b);
 }
 ```

@@ -2,19 +2,40 @@
 #define NSTD_TAGGED_UNION_N_HPP
 
 /*
+API:
+```c++
+template<typename Ts...>
+struct TaggedUnion
+{
+    uint8 Index;
+
+    template<typename T>
+    inline TaggedUnion Init(T t);
+    
+    template<typename T>
+    inline static usize GetIndex();
+    
+    template<typename T>
+    inline bool Is();
+    
+    template<typename T>
+    inline T& Get();
+};
+```
+
 Usage:
 ```c++
 {
     Nstd::TaggedUnion<int, signed char, uint8> t = t.Init<uint8>(9);
     switch(t.Index)
     {
-        case ntyepof(t)::GetIndex<int>():
+        case n_typeof(t)::GetIndex<int>():
             printf("int\n");
             break;
-        case ntyepof(t)::GetIndex<signed char>():
+        case n_typeof(t)::GetIndex<signed char>():
             printf("char\n");
             break;
-        case ntyepof(t)::GetIndex<uint8>():
+        case n_typeof(t)::GetIndex<uint8>():
             printf("uint8\n");
             break;
     }

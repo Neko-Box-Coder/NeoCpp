@@ -2,6 +2,40 @@
 #define NSTD_LIST_HPP
 
 /*
+API:
+```c++
+template<typename T, n_enable_if(n_is_simple(T))>
+struct List
+{
+    T* Data;
+    uint64 Len;
+    uint64 Cap;
+
+    inline List Init(n_ref Allocator& alloc, uint64 reserveSize);
+    
+    template<typename... Ts>
+    inline n_result<void> AddValues(Ts... values);
+    
+    template<typename... Ts>
+    inline List InitValues(n_ref Allocator& alloc, Ts... values);
+    
+    inline T& At(uint64 index);
+    inline const T& At(uint64 index) const;
+    inline n_result<void> Reserve(uint64 size);
+    inline n_result<void> ReserveAhead(uint64 size);
+    inline n_result<void> Resize(uint64 size);
+    inline n_result<void> Add(T t);
+    inline n_result<void> Insert(uint64 index, T t);
+    inline n_result<void> Remove(uint64 index);
+    inline n_result<void> AddRange(n_view<const T> v);
+    inline n_result<void> InsertRange(uint64 index, n_view<const T> v);
+    inline n_result<void> RemoveRange(uint64 index, uint64 len);
+    inline n_view<T> ToView();
+    inline n_view<const T> ToView() const;
+    inline n_result<void> Free();
+};
+```
+
 Usage:
 ```c++
 {
@@ -9,15 +43,15 @@ Usage:
     Nstd::List<int> list = list.Init(alloc, 4); //Initial size of 4
     for(int i = 0; i < list.Len; ++i)
         list.Data[i] = i;
-    list.Add(4);
-    list.Reserve(7);
-    list.Insert(5, 4);
-    list.Remove(4);
+    list.Add(4).n_try();
+    list.Reserve(7).n_try();
+    list.Insert(5, 4).n_try();
+    list.Remove(4).n_try();
     
     for(int i = 0; i < list.Len; ++i)
         printf("list.At(%d): %d\n", i, list.At(i));
     
-    list = list.NSTD_INIT_VALUES(alloc, 1, 2, 3);
+    list = list.InitValues(alloc, 1, 2, 3);
     for(int i = 0; i < list.Len; ++i)
         printf("list.At(%d): %d\n", i, list.At(i));
 }

@@ -1,6 +1,52 @@
 #ifndef NSTD_ALLOCATOR_N_HPP
 #define NSTD_ALLOCATOR_N_HPP
 
+/*
+API:
+```c++
+struct Allocator
+{
+    static inline Allocator Init(   MallocSig contextMalloc,
+                                    FreeSig contextFree,
+                                    ReallocSig contextRealloc,
+                                    FreeAllSig contextFreeAll,
+                                    DestroySig contextDestroy,
+                                    GetFreeBytesSig contextGetFreeBytes,
+                                    void* context);
+    
+    template<typename T>
+    inline n_view<T> Malloc(uint64 count);
+    
+    template<typename T>
+    inline void Free(n_view<T> mem);
+    inline void Free(void* mem);
+    
+    template<typename T>
+    inline n_view<T> Realloc(n_view<T> mem, uint64 count);
+    inline void FreeAll();
+    inline void Destroy();
+    inline uint64 GetFreeBytes() const;
+    
+    template<typename T>
+    inline n_view<T> Calloc(uint64 count);
+};
+```
+
+Usage:
+```c++
+{
+    Nstd::HeapAllocator h = h.Init(32);
+    Nstd::Allocator alloc = h.MakeAllocator();
+    n_defer { alloc.Destroy(); };
+
+    n_view<int64_t> ints = alloc.Malloc<int64_t>(16);
+    ints = alloc.Realloc<int64_t>(ints, 64);
+    alloc.Free(ints);
+    alloc.FreeAll();
+}
+```
+*/
+
 #include "ncpp.n.hpp"
 
 #include <string.h>

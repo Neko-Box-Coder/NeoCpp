@@ -1,6 +1,58 @@
 #ifndef NCPP_N_TYPE_N_HPP
 #define NCPP_N_TYPE_N_HPP
 
+/*
+API:
+```c++
+//Type manipulations
+bool n_is_same(T, U);       //Returns true if two types are identical
+void n_enable_if(expr);     //Enable function if expr is true
+bool n_is_simple(T);        //Returns true if T is POD && simple type
+Type n_typeof(expr);        //Returns the type of expr
+Type n_no_ref(T);           //Strip references from type
+Type n_no_const(T);         //Strip const from type
+Type n_no_volatile(T);      //Strip volatile from type
+Type n_no_cv(T);            //Strip const and volatile from type
+Type n_no_cvr(T);           //Strip const, volatile and reference from type
+bool n_has_const(T);        //Returns true if type has const
+Type n_is_int_type(T);      //Returns true if type is integer
+Type n_to_signed(T);        //Returns signed integer type
+Type n_to_unsigned(T);      //Returns unsigned integer type
+```
+
+Types:
+```c++
+uint8 / n_uint8
+int8 / n_int8
+
+uchar / n_uchar
+schar / n_schar
+
+uint16 / n_uint16
+int16 / n_int16
+
+uint32 / n_uint32
+int32 / n_int32
+
+uint64 / n_uint64
+int64 / n_int64
+
+uint / n_uint
+
+usize / n_usize
+ssize / n_ssize
+
+constexpr usize USIZE_MAX;
+constexpr ssize SSIZE_MIN;
+constexpr ssize SSIZE_MAX;
+```
+
+Usage:
+```c++
+//TODO: Add example showing n_is_simple and n_enable_if usage in templates
+```
+*/
+
 #include <stdint.h>
 #include <stddef.h>
 #include <inttypes.h>

@@ -1,209 +1,97 @@
 #ifndef NCPP_N_RESULT_N_HPP
 #define NCPP_N_RESULT_N_HPP
 
-/*
-API:
-`#define NCCP_NO_PATH 1` to not include file paths in trace
-`#define NCPP_NO_DEBUG_BREAK 1` to not automatic break in debugger
-```
-#define NCPP_ERR_CB(msg, msg_len, msg_cap, traces, traces_cap, trace) \
-    your_error_callback(msg, msg_len, msg_cap, traces, traces_cap, trace)
-```
-to trigger a callback when an error has happened
-`#define NCPP_ERR_BUFFER your_error_buffer` to set an alternative error buffer
+/* API: Error handling with trace stacks + check macros.
 
+Config:
+  `#define NCCP_NO_PATH 1`       Hide file paths in traces
+  `#define NCPP_NO_DEBUG_BREAK 1` Disable auto-debugger break on error
+  `#define NCPP_ERR_CB(msg, mlen, mcap, ts, tc, t) ...`  Custom callback fired when an error occurs
+  `#define NCPP_ERR_BUFFER ...`  Alternate global error buffer (n_error_buffer)
 
 ```c++
-struct trace
+struct n_trace
 {
     const char* function;
     const char* file;
     int line;
 };
 
+const char* n_trace_fmt_str();      //format string for printf like functions: "%s:%d in %s()"
+args... n_trace_fmt_args(trace);    //Arguments for the above format for printf like functions
+
+n_trace n_make_trace();             //Create trace at call site (function, file, line)
+void n_trace_printf_track();        //Print current location immediately using printf
+
 struct n_error_info
 {
     const char* message;
     uint8 msg_len;
     uint8 msg_cap;
-    trace* traces;
+    n_trace* traces;
     uint8 traces_len;
     uint8 traces_cap;
 
-    inline void append_trace(trace t);
+    inline void append_trace(n_trace t);
     inline usize string(char* mem, usize mem_len);
 };
 
-template<uint16 MSG_CAP = 1024, uint16 TRACE_CAP = 128, uint8 ERROR_CAP = 8>
-struct error_buffer
+template<uint16 MSG_CAP = 128, uint16 TRACE_CAP = 16, uint8 ERROR_CAP = 1>
+struct n_error_buffer
 {
-    uint16 message_index;
-    uint16 trace_index;
-    uint8 error_index;
-    char message[MSG_CAP];
-    trace traces[TRACE_CAP];
-    n_error_info errors[ERROR_CAP];
-    
-    static constexpr uint16 msg_cap = MSG_CAP;
-    static constexpr uint16 trace_cap = TRACE_CAP;
-    static constexpr uint8 error_cap = ERROR_CAP;
+    //Message/trace/error pools with indices
 };
 
 template<typename T>
 struct n_result
 {
-    T value;
-    n_error_info* err;
-    inline T& value_or(T val);
-    inline T& value_or_default();
+    T value;           //Result value (valid when err == NULL)
+    n_error_info* err; //Error info or NULL on success
+
+    inline T& value_or(T val);       //Return value or fallback
+    inline T& value_or_default();    //Return value or default-constructed T
+
+    T& n_try();             //Returns value if no error, otherwise append trace and return in caller
+    T& n_try_act(actions);  //Same as n_try(), except actions are invoked on error, with access to 
+                            //n_error_info& err
 };
+
+//Returns error in caller if condition fails
+n_check_true(cond);     //Fail if cond == false
+n_check_false(cond);    //Fail if cond != false
+n_check_eq(val, exp);   //Fail if val != exp
+n_check_neq(val, exp);  //Fail if val == exp
+n_check_gt(val, min);   //Fail if val <= min
+n_check_gte(val, min);  //Fail if val < min
+n_check_lt(val, max);   //Fail if val >= max
+n_check_lte(val, max);  //Fail if val > max
+
+//Same as above but with printf style arguments as custom error message
+n_check_true_fmt(cond, fmt, ...);
+n_check_false_fmt(cond, fmt, ...);
+n_check_eq_fmt(val, exp, fmt, ...);
+n_check_neq_fmt(val, exp, fmt, ...);
+n_check_gt_fmt(val, min, fmt, ...);
+n_check_gte_fmt(val, min, fmt, ...);
+n_check_lt_fmt(val, max, fmt, ...);
+n_check_lte_fmt(val, max, fmt, ...);
+
+//Deferred error-only cleanup:
+void n_use_error_defer();   //Declare caller uses n_error_defer
+n_error_defer { actions };  //Actions run only when an error (n_check_*() / n_try*()) happens
 ```
-
-`trace n_make_trace()`: Create a trace at the invoked location
-`(printf args) n_trace_fmt([const char* prefix], trace t, [const char* suffix])`: Creates a formated 
-    string arguments with `prefix` and `suffix` prepended before and appended to the formatted 
-    string which can be used with printf, like so: `printf( n_trace_fmt("    at ", myTrace, "\n") );`
-
-`n_result<T> nerror_msg(fmt, ...)`: Create an error message as n_result
-`T n_result<T>.ntry()`: Try to get the result value, otherwise append trace and return error
-`T n_result<T>.ntry_act(actions)`: Try to get the result value, otherwise perform `actions` where 
-    `error_info& err` is available
-
-`ncheck_true(op)`: Return error if `op == true` evaluates to false
-`ncheck_false(op)`: Return error if `op != true` evaluates to false
-`ncheck_eq(op, val)`: Return error if `op == val` evaluates to false
-`ncheck_neq(op, val)`: Return error if `op != val` evaluates to false
-`ncheck_gt(op, val)`: Return error if `op > val` evaluates to false
-`ncheck_gte(op, val)`: Return error if `op >= val` evaluates to false
-`ncheck_lt(op, val)`: Return error if `op < val` evaluates to false
-`ncheck_lte(op, val)`: Return error if `op <= val` evaluates to false
-
-`ncheck_true_fmt(op, fmt, ...)`: Same as `ncheck_true` but with custom error message
-`ncheck_false_fmt(op, fmt, ...)`: Same as `ncheck_false` but with custom error message
-`ncheck_eq_fmt(op, val, fmt, ...)`: Same as `ncheck_eq` but with custom error message
-`ncheck_neq_fmt(op, val, fmt, ...)`: Same as `ncheck_neq` but with custom error message
-`ncheck_gt_fmt(op, val, fmt, ...)`: Same as `ncheck_gt` but with custom error message
-`ncheck_gte_fmt(op, val, fmt, ...)`: Same as `ncheck_gte` but with custom error message
-`ncheck_lt_fmt(op, val, fmt, ...)`: Same as `ncheck_lt` but with custom error message
-`ncheck_lte_fmt(op, val, fmt, ...)`: Same as `ncheck_lte` but with custom error message
-
-`void nuse_error_defer()`: Indicates the caller function will use `nerror_defer` later
-`nerror_defer { <actions> }`: Defer action that only triggers when returning an error
-
----
 
 Usage:
 ```c++
-n_result<int> TestError(int v)
+n_result<int> Divide(int a, int b)
 {
-    nuse_error_defer();
-    nerror_defer { printf("This should be called by nerror_defer\n"); };
-    
-    (void)v;
-    return nerror_msg("Test Error");
+    n_check_gt(b, 0, "b must be positive");
+    return a / b;
 }
 
-n_result<int> TestValue(int v)
-{
-    return v;
-}
-
-n_result<int> TestNested(int v)
-{
-    nuse_error_defer();
-    nerror_defer { printf("This should not be called by nerror_defer\n"); };
-    
-    int v2 = TestValue(v).ntry();
-    return v2;
-}
-
-n_result<int> TestNestedError(int v)
-{
-    nuse_error_defer();
-    nerror_defer { printf("This should be called by nerror_defer again\n"); };
-    int v2 = TestError(v).ntry();
-    return v2;
-}
-
-n_result<int> TestCheck(int v)
-{
-    ncheck_eq(v, 5);
-    return v + 5;
-}
-
-n_result<int> TestCheckFmt(int v)
-{
-    ncheck_eq_fmt(v, 5, "v: %d", v);
-    return v + 5;
-}
-
-{
-    #define PRINT_STR_ERROR() err.string(msgMem, 256); printf("%s\n---------------\n", msgMem)
-    char* msgMem = (char*)malloc(256);
-    n_defer { free(msgMem); };
-    
-    int r = TestError(5).ntry_act(PRINT_STR_ERROR());
-    r = TestNestedError(5).ntry_act(PRINT_STR_ERROR());
-    r = TestNested(5).ntry_act(PRINT_STR_ERROR());
-    r = TestCheck(r).ntry_act(PRINT_STR_ERROR());
-    r = TestCheck(r).ntry_act(PRINT_STR_ERROR());
-    r = TestCheckFmt(r).ntry_act(PRINT_STR_ERROR());
-    
-    //NOTE: Traces can be accessed inside `ntry_act()` with `err.traces`, where printf arguments
-    //      for printing a single trace can be obtained with 
-    //      `n_trace_fmt(print prefix, trace, print suffix)` and used like so 
-    //      `printf(n_trace_fmt(...))`
-    
-    n_result<int> res = TestValue(3);
-    r = res.value;
-    bool hasError = res.err;
-    if(hasError)
-    {
-        error_info errInfo = *res.err;
-        (void)errInfo;
-    }
-    r = res.value_or(3);
-    r = res.value_or_default();
-}
-```
-
-Output:
-```
-This should be called by nerror_defer
-Error:
-    Test Error
-Stack trace:
-    at Test.cpp:28 in TestError()
-    at Test.cpp:131 in Main()
-
----------------
-This should be called by nerror_defer
-This should be called by nerror_defer again
-Error:
-    Test Error
-Stack trace:
-    at Test.cpp:28 in TestError()
-    at Test.cpp:49 in TestNestedError()
-    at Test.cpp:132 in Main()
-
----------------
-Error:
-    Expression "v == 5" has failed.
-Stack trace:
-    at Test.cpp:55 in TestCheck()
-    at Test.cpp:135 in Main()
-
----------------
-Error:
-    v: 0
-Stack trace:
-    at Test.cpp:61 in TestCheckFmt()
-    at Test.cpp:136 in Main()
-
----------------
+int result = Divide(10, 2).n_try();
 ```
 */
-
 
 #include "./n_type.n.hpp"
 #include "./n_defer.n.hpp"

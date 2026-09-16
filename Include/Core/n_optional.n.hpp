@@ -2,10 +2,34 @@
 #define NCPP_N_OPTIONAL_N_HPP
 
 /*
+API:
+```c++
+#define n_none //Represents an empty optional
+
+template<typename T>
+struct n_optional
+{
+    T value;
+    bool exists;
+
+    inline n_optional();
+    inline n_optional(optional_nothing);
+    inline n_optional(T val);
+    
+    inline operator bool() const;
+    inline bool operator!() const;
+    inline T& operator*();
+    inline T* operator->();
+    inline n_optional& operator=(const T& other);
+    inline T& value_or(T val);
+    inline T& value_or_default();
+};
+```
+
 Usage:
 ```c++
 {
-    noptional<int> optionalInt = nnone;
+    n_optional<int> optionalInt = n_none;
     printf("optionalInt?: %s\n", (optionalInt ? "true" : "false"));
     printf("optionalInt.value_or_default(): %d\n", optionalInt.value_or_default());
     printf("optionalInt.value_or(5): %d\n", optionalInt.value_or(5));

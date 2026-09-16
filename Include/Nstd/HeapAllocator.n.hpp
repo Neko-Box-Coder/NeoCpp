@@ -1,6 +1,29 @@
 #ifndef NSTD_HEAP_ALLOCATOR_N_HPP
 #define NSTD_HEAP_ALLOCATOR_N_HPP
 
+/*
+API:
+```c++
+struct HeapAllocator
+{
+    static inline HeapAllocator Init(uint64 allocCount);
+    inline Allocator MakeAllocator();
+};
+```
+
+Usage:
+```c++
+{
+    Nstd::HeapAllocator h = h.Init(32);
+    Nstd::Allocator alloc = h.MakeAllocator();
+    n_defer { alloc.Destroy(); };
+
+    n_view<int> ints = alloc.Malloc<int>(16);
+    alloc.Free(ints);
+}
+```
+*/
+
 #include "ncpp.n.hpp"
 #include "./Allocator.n.hpp"
 

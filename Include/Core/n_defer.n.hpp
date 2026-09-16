@@ -2,19 +2,20 @@
 #define NCPP_N_DEFER_N_HPP
 
 /*
+API:
+```c++
+//Runs at end of scope
+n_defer { actions };
+```
+
 Usage:
 ```c++
 {
-    defer { <Actions> }
-    ...
-    if(...)
-    {
-        //<Actions> called
-        return;
-    }
-    
-    //<Actions> called
-    return
+    Nstd::HeapAllocator h = h.Init(32);
+    Nstd::Allocator alloc = h.MakeAllocator();
+    n_defer { alloc.Destroy(); };
+
+    //alloc.Destroy() is called at end of scope regardless of early returns
 }
 ```
 */

@@ -1,6 +1,23 @@
 #ifndef NSTD_NODE_ALLOCATOR_N_HPP
 #define NSTD_NODE_ALLOCATOR_N_HPP
 
+/*
+API:
+```c++
+template<usize BLOCK_SIZE = 16>
+struct NodeAllocator
+{
+    inline n_result<void> Init(n_view<uint8> backing);
+    inline Allocator MakeAllocator();
+};
+```
+
+Usage:
+```c++
+//TODO: Add example from Test.n.cpp
+```
+*/
+
 #include "ncpp.n.hpp"
 #include "./Allocator.n.hpp"
 

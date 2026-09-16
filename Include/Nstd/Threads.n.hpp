@@ -1,6 +1,46 @@
 #define NSTD_THREADS_N_HPP
 #ifndef NSTD_THREADS_N_HPP
 
+/* 
+
+API:
+```c++
+struct ThreadId
+{
+    inline bool Equals(const ThreadId& other);
+};
+
+struct Mutex
+{
+    static inline n_result<Mutex> Init(bool recursive);
+    n_result<void> Lock() n_defer_with(Unlock);
+    n_result<bool> TimedLock(uint64 secs);
+    n_result<bool> TryLock();
+    n_result<void> Unlock();
+    inline void Destroy();
+};
+
+struct Event
+{
+    static inline n_result<Event> Init();
+    inline void Destroy();
+    inline n_result<void> Signal();
+    inline n_result<void> Broadcast();
+    inline n_result<void> Wait(n_ref Mutex& mutex);
+    inline n_result<bool> TimedWait(n_ref Mutex& mutex, uint64 secs);
+};
+
+using ThreadFunc = int(*)(Any)
+inline n_result<ThreadId> CreateThread(ThreadFunc func, Any args);
+inline ThreadId GetCurrentThreadId();
+inline void ExitThread(int res);
+inline n_result<int> JoinThread(ThreadId threadId);
+```
+
+Usage:
+//TODO: Add example from Test.n.cpp
+*/
+
 #include "ncpp.n.hpp"
 
 #include "./Any.n.hpp"
@@ -134,11 +174,13 @@ namespace Nstd
         return res;
     }
     
+    #if 0
     inline n_result<void> InitMutex(n_ref Mutex& mutex, bool recursive)
     {
         n_check_eq(mtx_init(&mutex, mtx_timed | (recursive ? mtx_recursive : 0), thrd_success);
         return {};
     }
+    #endif
     
     //TODO: Use AllocatorPool?
     inline n_result<ThreadId> CreateThread(ThreadFunc func, Any args)

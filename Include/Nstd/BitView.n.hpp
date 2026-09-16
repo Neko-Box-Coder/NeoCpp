@@ -1,6 +1,43 @@
 #ifndef NSTD_BIT_VIEW_N_HPP
 #define NSTD_BIT_VIEW_N_HPP
 
+/*
+API:
+```c++
+struct BitView
+{
+    n_view<uint8> ByteViews;
+
+    inline static BitView Init(n_view<uint8> bytes);
+    inline usize Len() const;
+    inline n_result<bool> GetBitAt(usize index);
+    
+    template<bool CHECK = true>
+    inline bool GetBit(usize index);
+    
+    template<bool REVERSE = false>
+    inline n_result<ssize> GetBitsUntilFlipped(usize startIndex);
+    
+    template<bool B>
+    inline n_result<void> SetBitAt(usize index);
+    
+    template<bool B, bool CHECK = true>
+    inline void SetBit(usize index);
+    
+    template<bool B>
+    inline n_result<void> SetBitsAt(usize index, usize range);
+    
+    template<bool B, bool CHECK = true>
+    inline void SetBits(usize index, usize range);
+};
+```
+
+Usage:
+```c++
+//TODO: Add example from Test.n.cpp
+```
+*/
+
 #include "ncpp.n.hpp"
 
 namespace Nstd
@@ -38,6 +75,8 @@ namespace Nstd
             return (ByteViews.data[index / 8] >> (index % 8)) & 0x01;
         }
         
+        //NOTE: Bit flip index = startIndex + return value
+        //TODO: Rename this?
         template<bool REVERSE = false>
         inline n_result<ssize> GetBitsUntilFlipped(usize startIndex)
         {

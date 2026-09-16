@@ -1,6 +1,51 @@
 #ifndef NSTD_LINKED_LIST_N_HPP
 #define NSTD_LINKED_LIST_N_HPP
 
+/*
+API:
+```c++
+template<typename T>
+struct ListNode
+{
+    ListNode<T>* Prev;
+    ListNode<T>* Next;
+    T Value;
+};
+
+template<typename T, n_enable_if(n_is_simple(T))>
+struct LinkedList
+{
+    inline LinkedList Init(n_ref Allocator& alloc);
+    
+    template<typename... Ts>
+    inline n_result<ListNode<T>*> AppendValues(n_ref ListNode<T>* node, Ts... values);
+    
+    template<typename... Ts>
+    inline n_result<ListNode<T>*> PrependValues(n_ref ListNode<T>* node, Ts... values);
+    
+    template<typename... Ts>
+    inline LinkedList InitValues(n_ref Allocator& alloc, Ts... values);
+    
+    inline n_result<ListNode<T>*> Append(n_ref ListNode<T>* node, T val);
+    inline n_result<ListNode<T>*> Prepend(n_ref ListNode<T>* node, T val);
+    inline n_result<void> Remove(n_ref ListNode<T>* node);
+    inline n_result<void> Reserve(uint64 size);
+    inline n_result<ListNode<T>*> AppendRange(n_ref ListNode<T>* node, n_view<const T> v);
+    inline n_result<ListNode<T>*> PrependRange(n_ref ListNode<T>* node, n_view<const T> v);
+    inline n_result<void> Clone(n_ref ListNode<T>* nodeToInsertAfter, n_ref LinkedList<T>& other);
+    inline n_result<void> CloneRange(   n_ref ListNode<T>* nodeToInsertAfter, 
+                                        n_ref ListNode<T>* otherNodeBegin,
+                                        n_ref ListNode<T>* otherNodeEnd);
+    inline n_result<void> Free();
+};
+```
+
+Usage:
+```c++
+//TODO: Add example from Test.n.cpp
+```
+*/
+
 #include "ncpp.n.hpp"
 
 #include "./Allocator.n.hpp"

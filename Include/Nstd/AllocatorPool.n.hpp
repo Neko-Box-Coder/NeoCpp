@@ -2,20 +2,31 @@
 #define NSTD_ALLOCATOR_POOL_N_HPP
 
 /*
+API:
+```c++
+template<typename TARGET_ALLOC>
+struct AllocatorPool
+{
+    List<TARGET_ALLOC> Allocators;
+    List<uint64> BackingSizes;
+    Allocator* BackingAllocator;
+
+    static inline n_result<AllocatorPool> Init(n_ref Allocator& backingAlloc, uint64 initialSize);
+    inline n_result<void> AddAllocator(uint64 allocSize);
+    inline Allocator MakeAllocator();
+};
+```
+
 Usage:
 ```c++
 {
-    Nstd::Allocator a = a.Init<int64, Nstd::HeapAllocator>(32);   //Reserve 32 int64
-    ndefer { a.Destroy(); };
-    int64* ints = a.Malloc<int64>(16);                          //Allocate 16 int64
-    (void)ints;
-    //...
-    ints = a.Realloc<int64>(ints, 64);                            //Expands to 64 int64
-    char* chars = a.Malloc<char>(16);
-    (void)chars;
-    a.Free(ints);
-    a.FreeAll();
-    chars = a.Malloc<char>(4);
+    Nstd::HeapAllocator h = h.Init(32);
+    Nstd::Allocator alloc = h.MakeAllocator();
+    n_defer { alloc.Destroy(); };
+    
+    //NOTE: AllocatorPool with FastAllocator
+    Nstd::AllocatorPool<Nstd::FastAllocator<>> pool = pool.Init(n_ref alloc, 64).n_try();
+    Nstd::Allocator poolAlloc = pool.MakeAllocator();
 }
 ```
 */

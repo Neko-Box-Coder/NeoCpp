@@ -1,6 +1,60 @@
 #ifndef NSTD_HASHMAP_N_HPP
 #define NSTD_HASHMAP_N_HPP
 
+/*
+API:
+```c++
+template<typename T>
+struct HashNode
+{
+    n_view<const char> Key;
+    T Value;
+};
+
+template<typename T>
+struct Hashmap
+{
+    inline Hashmap Init(n_ref Allocator& alloc);
+    
+    template<typename... Ts>
+    inline n_result<void> AddValues(KeyValue<T> keyval, Ts... keyvals);
+    
+    template<typename... Ts>
+    inline Hashmap InitValues(n_ref Allocator& alloc, KeyValue<T> keyval, Ts... keyvals);
+    
+    inline n_result<void> Add(n_view<const char> key, T value);
+    inline n_result<HashNode<T>*> Find(n_view<const char> key);
+    inline n_result<void> Remove(n_ref HashNode<T>*& node);
+    inline n_result<void> Reserve(uint64 size);
+    inline n_result<void> AddRange(n_view<KeyValue<T>> keyValues);
+    inline n_result<usize> Len();
+    inline HashNode<T>* First();
+    inline HashNode<T>* Next(n_in HashNode<T>* node);
+    inline n_result<void> Free();
+};
+```
+
+Usage:
+```c++
+{
+    Nstd::Hashmap<int> hmap =
+        hmap.InitValues(n_ref alloc,
+                        Nstd::KeyValue<int> { "Test-2", -2 },
+                        Nstd::KeyValue<int> { "Test-1", -1 });
+    
+    hmap.Add("Test5", 5).n_try();
+    
+    Nstd::HashNode<int>* found = hmap.Find("Test5").n_try();
+    printf("hmap[\"Test5\"]: %d\n", found->Value);
+    
+    for(Nstd::HashNode<int>* cur = hmap.First(); cur; cur = hmap.Next(cur))
+        printf("key: %.*s, value: %d\n", (int)cur->Key.Len(), cur->Key.Data(), cur->Value);
+    
+    hmap.Free().n_try();
+}
+```
+*/
+
 #include "ncpp.n.hpp"
 #include "./Allocator.n.hpp"
 #include "./KeyValue.n.hpp"
