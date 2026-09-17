@@ -112,15 +112,14 @@ namespace Nstd
                                         GetFreeBytesSig contextGetFreeBytes,
                                         void* context)
         {
-            Allocator alloc =   {
-                                    .ContextMalloc = contextMalloc,
-                                    .ContextFree = contextFree,
-                                    .ContextRealloc = contextRealloc,
-                                    .ContextFreeAll = contextFreeAll,
-                                    .ContextDestroy = contextDestroy,
-                                    .ContextGetFreeBytes = contextGetFreeBytes,
-                                    .Context = context
-                                };
+            Allocator alloc = {};
+            alloc.ContextMalloc = contextMalloc;
+            alloc.ContextFree = contextFree;
+            alloc.ContextRealloc = contextRealloc;
+            alloc.ContextFreeAll = contextFreeAll;
+            alloc.ContextDestroy = contextDestroy;
+            alloc.ContextGetFreeBytes = contextGetFreeBytes;
+            alloc.Context = context;
             return alloc;
         }
         
