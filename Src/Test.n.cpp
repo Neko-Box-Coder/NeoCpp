@@ -43,6 +43,7 @@ IncludePaths:
 #include "Nstd/Any.n.hpp"
 #include "Nstd/Threads.n.hpp"
 #include "Nstd/Filesystem.n.hpp"
+#include "Nstd/ReportError.n.hpp"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -460,12 +461,7 @@ n_result<int> Main(int, char**)
 int main(int argc, char** argv)
 {
     int r = Main(argc, argv).n_try_act( printf("FAILED.\n");
-                                        printf("Error: \n    %s\nStack trace:\n", err.message);
-                                        for(int i = 0; i < err.traces_len; ++i)
-                                        {
-                                            printf( "    at " n_trace_fmt_str() "\n", 
-                                                    n_trace_fmt_args(err.traces[i]));
-                                        }
+                                        NSTD_REPORT_ERROR();
                                         return 1);
     return r;
 }
