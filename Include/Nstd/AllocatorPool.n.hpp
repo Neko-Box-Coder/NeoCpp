@@ -89,9 +89,9 @@ namespace Nstd
         {
             for(int i = 0; i < Allocators.Len; ++i)
             {
-                if(Allocators.at(i).GetFreeBytes(&Allocators).at(i) > allocSize)
+                if(Allocators.At(i).GetFreeBytes(&Allocators.At(i)) > allocSize)
                 {
-                    void* p = Allocators.at(i).Malloc(Allocators.at(i), allocSize);
+                    void* p = Allocators.At(i).Malloc(&Allocators.At(i), allocSize);
                     if(p)
                         return p;
                 }
@@ -109,16 +109,17 @@ namespace Nstd
                     return NULL;
             }
             
-            return Allocators.at(Allocators.Len - 1).Malloc(allocSize);
+            return Allocators.At(Allocators.Len - 1).Malloc(&Allocators.At(Allocators.Len - 1), 
+                                                            allocSize);
         }
         
         inline void InternFree(void* mem)
         {
             for(int i = 0; i < Allocators.Len; ++i)
             {
-                if(Allocators.at(i).OwnsPtr(mem))
+                if(Allocators.At(i).OwnsPtr(mem))
                 {
-                    Allocators.at(i).Free(&Allocators.at(i), mem);
+                    Allocators.At(i).Free(&Allocators.At(i), mem);
                     break;
                 }
             }
@@ -128,8 +129,8 @@ namespace Nstd
         {
             for(int i = 0; i < Allocators.Len; ++i)
             {
-                if(Allocators.at(i).OwnsPtr(mem))
-                    return Allocators.at(i).Realloc(&Allocators.at(i), mem, allocSize);
+                if(Allocators.At(i).OwnsPtr(mem))
+                    return Allocators.At(i).Realloc(&Allocators.At(i), mem, allocSize);
             }
             return NULL;
         }
@@ -137,13 +138,13 @@ namespace Nstd
         inline void InternFreeAll()
         {
             for(int i = 0; i < Allocators.Len; ++i)
-                Allocators.at(i).FreeAll(&Allocators.at(i));
+                Allocators.At(i).FreeAll(&Allocators.At(i));
         }
         
         inline void InternDestroy()
         {
             for(int i = 0; i < Allocators.Len; ++i)
-                Allocators.at(i).Destroy(&Allocators.at(i));
+                Allocators.At(i).Destroy(&Allocators.At(i));
         }
         
         static inline void* Malloc(void* context, uint64 allocSize)
