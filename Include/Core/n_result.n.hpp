@@ -125,11 +125,11 @@ int result = Divide(10, 2).n_try();
 namespace
 {
 #if __cplusplus >= 202002L
-    inline consteval const char* GetFileName(const char* path) 
+    inline consteval const char* Intern_GetFileName(const char* path) 
 #elif __cplusplus >= 201402L
-    inline constexpr const char* GetFileName(const char* path) 
+    inline constexpr const char* Intern_GetFileName(const char* path) 
 #else
-    inline const char* GetFileName(const char* path) 
+    inline const char* Intern_GetFileName(const char* path) 
 #endif
     {
         const char* lastSlash = path;
@@ -152,7 +152,7 @@ namespace ncpp
         const char* file;
         int line;
         
-        #define n_make_trace() ncpp::n_trace { __func__, GetFileName(NCPP_PATH), __LINE__ }
+        #define n_make_trace() ncpp::n_trace { __func__, Intern_GetFileName(NCPP_PATH), __LINE__ }
         
         #define n_trace_fmt_str() "%s:%d in %s()"
         #define n_trace_fmt_args(trace) trace.file, trace.line, trace.function

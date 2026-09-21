@@ -35,6 +35,25 @@ struct String
 };
 ```
 
+Usage:
+```c++
+Nstd::String s = s.InitString(n_ref alloc, "Test");
+
+s.Add('s').n_try();
+s.Remove(2).n_try();
+
+s.AppendString("Hello").n_try();
+s.InsertString(4, " World").n_try();
+s.RemoveRange(9, 5).n_try();
+
+uint64 index = s.FindSubString("World");
+//Returns s.Len() if not found
+
+s.AppendFormat(" Int32: {} UInt16: {}", (int32)42, (uint16)55335).n_try();
+
+s.RemoveString("Hello").n_try();
+```
+
 */
 
 #include "ncpp.n.hpp"

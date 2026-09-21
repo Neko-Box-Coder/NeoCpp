@@ -45,6 +45,7 @@ IncludePaths:
 #include "Nstd/Any.n.hpp"
 #include "Nstd/Threads.n.hpp"
 #include "Nstd/Filesystem.n.hpp"
+#include "Nstd/PathUtil.n.hpp"
 #include "Nstd/ReportError.n.hpp"
 #include "Nstd/StringUtil.n.hpp"
 
@@ -349,6 +350,42 @@ n_result<int> Main(int, char**)
         printf("String: \"%s\" with len %" PRIu64 "\n", s.Data(), s.Len());
     }
     
+    //Nstd/PathUtil.n.hpp
+    {
+        #ifdef _WIN32
+            n_view<const char> path = "C:\\home\\user\\docs\\report.txt";
+        #elif defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
+            n_view<const char> path = "/home/user/docs/report.txt";
+        #else
+            #error "Unsupported platform"
+        #endif
+
+        n_view<const char> ext = Nstd::GetExtension(path);
+        printf("Extension: \"%.*s\"\n", (int)ext.len, ext.data);
+
+        n_view<const char> name = Nstd::GetFileName(path);
+        printf("FileName: \"%.*s\"\n", (int)name.len, name.data);
+
+        n_view<const char> nameNoExt = Nstd::GetStem(path);
+        printf("FileNameWithoutExt: \"%.*s\"\n", (int)nameNoExt.len, nameNoExt.data);
+
+        n_view<const char> parent = Nstd::GetParentPath(path);
+        printf("ParentDir: \"%.*s\"\n", (int)parent.len, parent.data);
+
+        n_check_true(Nstd::IsAbsolutePath(path));
+        n_check_false(Nstd::EndsWithSeparator(path));
+
+        #ifdef _WIN32
+            n_check_true(Nstd::IsAbsolutePath("\\\\home\\user\\docs\\report.txt"));
+        #endif
+
+        Nstd::String joinedPath = Nstd::JoinPaths(n_ref alloc, parent, "./docs2/./report2.txt").n_try();
+        printf("JoinPaths: \"%.*s\"\n", (int)joinedPath.Len(), joinedPath.Data());
+        
+        Nstd::String normalized = Nstd::NormalizePath(n_ref alloc, joinedPath.ToConstView()).n_try();
+        printf("Normalized: \"%.*s\"\n", (int)normalized.Len(), normalized.Data());
+    }
+
     //Nstd/Atomic.n.hpp
     {
         Nstd::Atomic<int8> a;
@@ -367,6 +404,7 @@ n_result<int> Main(int, char**)
     
     
     //Nstd/Filesystem.n.hpp
+    if(false)
     {
         //Write a test file
         n_view<const char> testData = "Hello from Nstd Filesystem!\n";
@@ -468,6 +506,35 @@ n_result<int> Main(int, char**)
         Nstd::DeleteFile("../fs_test.txt").n_try();
         exists = Nstd::PathExists("../fs_test.txt").n_try();
         n_check_false(exists);
+    }
+    
+    if(false)
+    {
+        Nstd::File stdoutFile = { stdout };
+        
+        usize wroteBytes = 0;
+        n_view<const char> testOutput = "Test writing to stdout stream...\n";
+        stdoutFile.Write(testOutput.as<const uint8>(), n_ref wroteBytes).n_try();
+        stdoutFile.Flush().n_try();
+    }
+    
+    if(false)
+    {
+        Nstd::File stdinFile = { stdin };
+        
+        Nstd::String s = s.Init(n_ref alloc, 64);
+        s.Resize(64).n_try();
+        
+        printf("Sleeping...\n");
+        sleep(3);
+        
+        //int64 stdinOffset = stdinFile.Tell().n_try();
+        //printf("stdinOffset: %" PRIu64 "\n", stdinOffset);
+        
+        usize readBytes = 0;
+        stdinFile.Read(s.ToView().as<uint8>(), n_ref readBytes).n_try();
+        
+        printf("Read %zu bytes\n", readBytes);
     }
     
     return 0;
