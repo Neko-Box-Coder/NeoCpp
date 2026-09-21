@@ -310,6 +310,8 @@ namespace Nstd
         if(ret != 0)
             return n_error_msg("Failed to open directory '%s'", pathBuf.data);
 
+        if(tinydir_readfile(&iter.Dir, &iter.CurrentFile) < 0)
+            return n_error_msg("Failed to read directory entry data");
         return iter;
     }
 
