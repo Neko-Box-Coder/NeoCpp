@@ -330,7 +330,7 @@ namespace Nstd
             return S_ISDIR(st.st_mode);
         #elif defined(_WIN32)
             struct _stat st;
-            if(_stat(pathBuf, &st) != 0)
+            if(_stat(pathBuf.data, &st) != 0)
                 return n_error_msg("Failed to stat path: %s", strerror(errno));
 
             return (_S_IFDIR & st.st_mode) != 0;
@@ -412,7 +412,7 @@ namespace Nstd
                     return n_error_msg("Failed to create directory: %s", strerror(errno));
             }
         #elif defined(_WIN32)
-            if(CreateDirectoryA(pathBuf.data, nullptr) == 0)
+            if(::CreateDirectoryA(pathBuf.data, NULL) == 0)
             {
                 DWORD err = GetLastError();
                 if(err != ERROR_ALREADY_EXISTS)

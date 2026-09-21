@@ -4,7 +4,7 @@
 [submodule "debugbreak"]
 	path = Include/Core/External/debugbreak
 	url = https://github.com/Neko-Box-Coder/debugbreak.git
-[submodule "Nstd/MacroPowerToys"]
+[submodule "MacroPowerToys"]
 	path = Include/Nstd/External/MacroPowerToys
 	url = https://github.com/Neko-Box-Coder/MacroPowerToys.git
 [submodule "uthash"]
@@ -19,6 +19,6 @@
 [submodule "cthreads"]
 	path = Include/Nstd/External/cthreads
 	url = https://github.com/pbotmeyertron/cthreads.git
-[submodule "Include/Nstd/External/TinyDir"]
+[submodule "TinyDir"]
 	path = Include/Nstd/External/TinyDir
 	url = https://github.com/cxong/tinydir.git
