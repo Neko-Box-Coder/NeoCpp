@@ -13,9 +13,7 @@ struct n_view
     inline n_view();
     inline n_view(T* d, usize l);
     
-    inline n_view(const n_view<T>& other);
-    inline n_view(const n_view<const T>& other);
-    
+    inline n_view(n_in const n_view<T>& other);
     inline n_view(const char* c);
 
     inline n_view<T> sub(usize index, usize l);
@@ -35,9 +33,9 @@ struct n_view
     inline T2 read(usize index) const;
     
     template<typename T2, bool ASSERT = true>
-    inline void write(usize index, const T2& var);
+    inline void write(usize index, n_in const T2& var)
     
-    inline bool operator==(const n_in n_view<T>& other);
+    inline bool operator==(n_in const n_view<T>& other) 
     
     inline operator bool() const;
     inline bool operator!() const;
@@ -76,10 +74,10 @@ namespace ncpp
         
         //NOTE: T2 = T is just a hack to be trivial
         template<typename T2 = T, typename T3 = n_no_const(T)>
-        inline n_view(const n_view<T3>& other) { data = other.data; len = other.len; }
+        inline n_view(n_in const n_view<T3>& other) { data = other.data; len = other.len; }
         
         template<typename T2 = T>
-        inline n_view(const n_view<const T2>& other) 
+        inline n_view(n_in const n_view<const T2>& other) 
         { 
             static_assert(n_bool_const(false), "Cannot convert a const view to non const view");
         }
@@ -193,7 +191,7 @@ namespace ncpp
         }
         
         template<typename T2, bool ASSERT = true>
-        inline void write(usize index, const T2& var)
+        inline void write(usize index, n_in const T2& var)
         {
             if(ASSERT)
                 n_assert(data && len && index * sizeof(T) + sizeof(T2) <= len * sizeof(T));
@@ -202,7 +200,7 @@ namespace ncpp
             memcpy(&data[index], &var, sizeof(T2));
         }
         
-        inline bool operator==(const n_in n_view<T>& other) 
+        inline bool operator==(n_in const n_view<T>& other) 
         { 
             return  data && 
                     other.data && 
