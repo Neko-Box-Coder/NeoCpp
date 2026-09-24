@@ -32,6 +32,8 @@ IncludePaths:
 
 #include "Nstd/TaggedUnion.n.hpp"
 #include "Nstd/HeapAllocator.n.hpp"
+#include "Nstd/PageAllocator.n.hpp"
+#include "Nstd/NodeAllocator.n.hpp"
 #include "Nstd/FastAllocator.n.hpp"
 #include "Nstd/Allocator.n.hpp"
 #include "Nstd/AllocatorPool.n.hpp"
@@ -99,7 +101,7 @@ n_result<int> Main(int, char**)
             return 0;
     #endif
     
-    Nstd::HeapAllocator h = h.Init(32);
+    Nstd::HeapAllocator h = h.Init(32).n_try();
     Nstd::Allocator alloc = h.MakeAllocator();
     n_defer { alloc.Destroy(); };
     
@@ -140,9 +142,21 @@ n_result<int> Main(int, char**)
     
     {
         //TODO
-        Nstd::AllocatorPool<Nstd::FastAllocator<>> AllocPool = AllocPool.Init(n_ref alloc, 64).n_try();
+        Nstd::AllocatorPool<Nstd::FastAllocator<>> AllocPool = AllocPool.Init(alloc, 64).n_try();
+        Nstd::AllocatorPool<Nstd::NodeAllocator<>> AllocPool2 = AllocPool2.Init(alloc, 64).n_try();
+        Nstd::AllocatorPool<Nstd::HeapAllocator> AllocPool3 = AllocPool3.Init(alloc, 64).n_try();
+        Nstd::AllocatorPool<Nstd::PageAllocator<>> AllocPool4 = AllocPool4.Init(alloc, 64).n_try();
         
+        Nstd::FastAllocator<> f;
+        Nstd::NodeAllocator<> n;
+        Nstd::HeapAllocator h;
+        Nstd::PageAllocator<> p;
         
+        (void)AllocPool;
+        (void)f;
+        (void)n;
+        (void)h;
+        (void)p;
     }
     
     //Core/n_move.n.hpp

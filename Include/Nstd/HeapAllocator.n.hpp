@@ -6,7 +6,17 @@ API:
 ```c++
 struct HeapAllocator
 {
-    static inline HeapAllocator Init(uint64 allocCount);
+    static inline n_result<HeapAllocator> Init(uint64 allocCount);
+    inline bool OwnsPtr(void* ptr);
+    
+    template<typename T>
+    inline n_view<T> Malloc(uint64 count);
+    inline void Free(void* data);
+    
+    template<typename T>
+    inline n_view<T> Realloc(void* data, uint64 count);
+    inline void FreeAll();
+    inline void Destroy();
     inline Allocator MakeAllocator();
 };
 ```
@@ -53,16 +63,17 @@ namespace Nstd
         uint32 Len;
         uint32 Cap;
         
-        static inline HeapAllocator Init(uint64 allocCount)
+        static inline n_result<HeapAllocator> Init(uint64 allocCount)
         {
             HeapAllocator alloc = {};
             alloc.MemLookup = (void**)Intern_Calloc(allocCount * sizeof(void*));
+            n_check_true(alloc.MemLookup);
             alloc.Len = 0;
             alloc.Cap = allocCount;
             return alloc;
         }
         
-        static inline uint32 GetKey(void* ptr, uint32 cap)
+        static inline uint32 Intern_GetPossibleKey(void* ptr, uint32 cap)
         {
             uint halfBits = sizeof(uintptr_t) / 8 / 2;
             uintptr_t k = (uintptr_t)ptr;
@@ -79,7 +90,7 @@ namespace Nstd
             return (uint32)(k % cap);
         }
         
-        inline bool Rehash()
+        inline bool Intern_Rehash()
         {
             void** newLookup = (void**)Intern_Calloc(Cap * 2 * sizeof(void*));
             if(!newLookup)
@@ -89,7 +100,7 @@ namespace Nstd
             {
                 if(MemLookup[i])
                 {
-                    uint32 key = GetKey(MemLookup[i], Cap * 2);
+                    uint32 key = Intern_GetPossibleKey(MemLookup[i], Cap * 2);
                     while(newLookup[key])
                     {
                         ++key;
@@ -106,7 +117,7 @@ namespace Nstd
         
         inline uint32 Intern_NullKey(void* ptr)
         {
-            uint32 key = GetKey(ptr, Cap);
+            uint32 key = Intern_GetPossibleKey(ptr, Cap);
             while(MemLookup[key])
             {
                 ++key;
@@ -117,7 +128,7 @@ namespace Nstd
         
         inline uint32 Intern_GetKey(void* ptr)
         {
-            uint32 key = GetKey(ptr, Cap);
+            uint32 key = Intern_GetPossibleKey(ptr, Cap);
             uint32 oriKey = key;
              do
             {
@@ -130,82 +141,126 @@ namespace Nstd
             return Cap;
         }
         
-        static void* Malloc(void* c, uint64 size)
+        inline bool OwnsPtr(void* ptr)
         {
-            HeapAllocator* context = (HeapAllocator*)c;
-            if(context->Len + 1 >= context->Cap / 2)
+            if(!ptr)
+                return false;
+            
+            uint32 k = Intern_GetKey(ptr);
+            if(k == Cap)
+                return false;
+            return true;
+        }
+        
+        template<typename T>
+        inline n_view<T> Malloc(uint64 count)
+        {
+            if(Len + 1 >= Cap / 2)
             {
-                if(!context->Rehash())
-                    return NULL;
+                if(!Intern_Rehash())
+                    return {};
             }
             
-            void* m = NSTD_ALLOC_MALLOC(size);
-            uint32 k = context->Intern_NullKey(m);
-            context->MemLookup[k] = m;
-            ++(context->Len);
-            return m;
+            void* m = NSTD_ALLOC_MALLOC(count * sizeof(T));
+            uint32 k = Intern_NullKey(m);
+            MemLookup[k] = m;
+            ++(Len);
+            return {(T*)m, count};
         }
         
-        static void Free(void* c, void* ptr)
+        inline void Free(void* data)
         {
-            HeapAllocator* context = (HeapAllocator*)c;
-            if(!ptr)
+            if(!data)
                 return;
             
-            uint32 k = context->Intern_GetKey(ptr);
-            if(k == context->Cap)
+            uint32 k = Intern_GetKey(data);
+            if(k == Cap)
                 return;
             
-            NSTD_ALLOC_FREE(context->MemLookup[k]);
-            context->MemLookup[k] = NULL;
-            --(context->Len);
+            NSTD_ALLOC_FREE(MemLookup[k]);
+            MemLookup[k] = NULL;
+            --Len;
         }
         
-        static void* Realloc(void* c, void* ptr, uint64 size)
+        template<typename T>
+        inline n_view<T> Realloc(void* data, uint64 count)
         {
-            HeapAllocator* context = (HeapAllocator*)c;
-            uint32 k = context->Intern_GetKey(ptr);
-            if(k == context->Cap)
-                return ptr;
+            uint32 k = Intern_GetKey(data);
+            if(k == Cap)
+                return { (T*)data, count };
             
-            context->MemLookup[k] = NULL;
-            void* p = NSTD_ALLOC_REALLOC((char*)ptr, size);
+            MemLookup[k] = NULL;
+            void* p = NSTD_ALLOC_REALLOC((char*)data, count);
             if(!p)
             {
-                k = context->Intern_NullKey(ptr);
-                context->MemLookup[k] = ptr;
-                return NULL;
+                k = Intern_NullKey(data);
+                MemLookup[k] = data;
+                return {};
             }
             
-            k = context->Intern_NullKey(p);
-            context->MemLookup[k] = p;
-            return p;
+            k = Intern_NullKey(p);
+            MemLookup[k] = p;
+            return { (T*)p, count };
         }
         
-        static void FreeAll(void* c)
+        inline void FreeAll()
         {
-            HeapAllocator* context = (HeapAllocator*)c;
-            for(uint32 i = 0; i < context->Cap; ++i)
+            for(uint32 i = 0; i < Cap; ++i)
             {
-                if(context->MemLookup[i])
+                if(MemLookup[i])
                 {
-                    NSTD_ALLOC_FREE(context->MemLookup[i]);
-                    context->MemLookup[i] = NULL;
+                    NSTD_ALLOC_FREE(MemLookup[i]);
+                    MemLookup[i] = NULL;
                 }
             }
         }
         
-        static void Destroy(void* c) 
+        inline void Destroy()
+        {
+            FreeAll();
+            NSTD_ALLOC_FREE(MemLookup);
+            memset(this, 0, sizeof(HeapAllocator));
+        }
+        
+        static void* ContextMalloc(void* c, uint64 size)
         {
             HeapAllocator* context = (HeapAllocator*)c;
-            FreeAll(context);
-            NSTD_ALLOC_FREE(context->MemLookup);
-            memset(context, 0, sizeof(HeapAllocator));
+            return context->Malloc<uint8>(size).data;
+        }
+        
+        static void ContextFree(void* c, void* ptr)
+        {
+            HeapAllocator* context = (HeapAllocator*)c;
+            context->Free(ptr);
+        }
+        
+        static void* ContextRealloc(void* c, void* ptr, uint64 size)
+        {
+            HeapAllocator* context = (HeapAllocator*)c;
+            return context->Realloc<uint8>(ptr, size).data;
+        }
+        
+        static void ContextFreeAll(void* c)
+        {
+            HeapAllocator* context = (HeapAllocator*)c;
+            context->FreeAll();
+        }
+        
+        static void ContextDestroy(void* c) 
+        {
+            HeapAllocator* context = (HeapAllocator*)c;
+            context->Destroy();
         }
         
         inline Allocator MakeAllocator()
         {
-            return Allocator::Init(Malloc, Free, Realloc, FreeAll, Destroy, NULL, this);
+            return Allocator::Init( ContextMalloc, 
+                                    ContextFree, 
+                                    ContextRealloc, 
+                                    ContextFreeAll, 
+                                    ContextDestroy, 
+                                    NULL, 
+                                    this);
         }
     };
     

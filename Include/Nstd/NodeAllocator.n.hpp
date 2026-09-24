@@ -7,7 +7,18 @@ API:
 template<usize BLOCK_SIZE = 16>
 struct NodeAllocator
 {
-    inline n_result<void> Init(n_view<uint8> backing);
+    static inline n_result<NodeAllocator> Init(n_view<uint8> backing);
+    
+    template<typename T>
+    inline n_view<T> Malloc(uint64 count);
+    inline bool OwnsPtr(void* ptr);
+    inline void Free(void* ptr);
+    
+    template<typename T>
+    inline n_view<T> Realloc(void* data, uint64 count);
+    inline void FreeAll();
+    inline void Destroy();
+    inline uint64 GetFreeBytes() const;
     inline Allocator MakeAllocator();
 };
 ```
@@ -23,7 +34,7 @@ Usage:
 
 #include <string.h>
 #include <stddef.h>
-#include <stdio.h>
+//#include <stdio.h>
 
 
 namespace Nstd
@@ -61,7 +72,7 @@ namespace Nstd
         uint32 FreeHead;
         uint32 BumpBlock;
 
-        int BucketForSize(uint32 blocks) const
+        inline int Intern_BucketForSize(uint32 blocks) const
         {
             if(blocks <= 4)  return 0;
             if(blocks <= 8)  return 1;
@@ -73,28 +84,27 @@ namespace Nstd
             return 7;
         }
 
-        bool IsUsed(uint32 b) const { return b & USED_FLAG; }
-        uint32 BlockCountOf(uint32 b) const { return b & ~USED_FLAG; }
+        inline bool Intern_IsUsed(uint32 b) const { return b & USED_FLAG; }
+        inline uint32 Intern_BlockCountOf(uint32 b) const { return b & ~USED_FLAG; }
 
-        uint32 GetFreeBlocks() const { return FreeBlockCount; }
-        uint32 SetUsed(uint32 n) { return n | USED_FLAG; }
+        inline uint32 Intern_SetUsed(uint32 n) { return n | USED_FLAG; }
         
-        inline NodeAllocatorNode ReadNode(uint32 i) const 
+        inline NodeAllocatorNode Intern_ReadNode(uint32 i) const 
         {
             return Memory.read<NodeAllocatorNode>(i * BLOCK_SIZE);
         }
         
-        void WriteNode(uint32 i, NodeAllocatorNode n) 
+        inline void Intern_WriteNode(uint32 i, NodeAllocatorNode n) 
         { 
             Memory.write<NodeAllocatorNode>(i * BLOCK_SIZE, n);
         }
 
-        uint32 BlockFromPtr(uint8* p)
+        inline uint32 Intern_BlockFromPtr(uint8* p)
         {
             return (uint32)((p - Memory.data - DATA_OFFSET) / BLOCK_SIZE);
         }
 
-        uint64 UsableBytes(uint32 blocks) const
+        inline uint64 Intern_UsableBytes(uint32 blocks) const
         {
             uint32 total = blocks * BLOCK_SIZE;
             if(total > DATA_OFFSET)
@@ -102,9 +112,9 @@ namespace Nstd
             return 0;
         }
 
-        void CacheInsert(uint32 idx, uint32 blocks)
+        inline void Intern_CacheInsert(uint32 idx, uint32 blocks)
         {
-            int b = BucketForSize(blocks);
+            int b = Intern_BucketForSize(blocks);
             int slot = (CacheHead[b] + CacheCount[b]) % BUCKET_SIZE;
             Cache[b][slot] = idx;
             CacheBlocks[b][slot] = blocks;
@@ -114,11 +124,13 @@ namespace Nstd
                 CacheCount[b]++;
         }
 
-        void CacheRemoveBucket(int bucket, uint32 removeIdx)
+        inline void Intern_CacheRemoveBucket(int bucket, uint32 removeIdx)
         {
-            if(bucket < 0 || bucket >= BUCKET_COUNT) return;
+            if(bucket < 0 || bucket >= BUCKET_COUNT) 
+                return;
             int cc = CacheCount[bucket];
-            if(cc <= 0) return;
+            if(cc <= 0) 
+                return;
 
             int startSlot = CacheHead[bucket];
             for(int i = 0; i < cc; ++i)
@@ -135,84 +147,79 @@ namespace Nstd
             }
         }
 
-        void CacheRemove(int bucket, uint32 removeIdx)
+        inline void Intern_CacheRemove(int bucket, uint32 removeIdx)
         {
-            if(bucket < 0 || bucket >= BUCKET_COUNT) return;
-            CacheRemoveBucket(bucket, removeIdx);
+            if(bucket < 0 || bucket >= BUCKET_COUNT) 
+                return;
+            Intern_CacheRemoveBucket(bucket, removeIdx);
         }
 
-        void CacheRemoveAll(uint32 removeIdx)
-        {
-            for(int b = 0; b < BUCKET_COUNT; ++b)
-            {
-                CacheRemoveBucket(b, removeIdx);
-            }
-        }
-
-        inline n_result<void> Init(n_view<uint8> backing)
+        inline n_result<NodeAllocator> Init(n_view<uint8> backing)
         {
             if(!backing)
                 return n_error_msg("Invalid backing");
             
+            NodeAllocator na = {};
             uint64 totalBlocks = backing.len / BLOCK_SIZE;
             if(totalBlocks < 2 || totalBlocks > UINT32_MAX)
                 return n_error_msg("Invalid reserve size: %zu", backing.len);
 
-            BlockCount = (uint32)totalBlocks;
-            FreeBlockCount = BlockCount;
+            na.BlockCount = (uint32)totalBlocks;
+            na.FreeBlockCount = na.BlockCount;
 
             NodeAllocatorNode initNode;
             initNode.Next   = NIL;
             initNode.Prev   = NIL;
-            initNode.Blocks = BlockCount;
-            WriteNode(0, initNode);
+            initNode.Blocks = na.BlockCount;
+            na.Intern_WriteNode(0, initNode);
 
-            FreeHead  = 0;
-            BumpBlock = 1;
+            na.FreeHead  = 0;
+            na.BumpBlock = 1;
             for(int b = 0; b < BUCKET_COUNT; ++b)
             {
-                CacheHead[b]     = 0;
-                CacheCount[b]    = 0;
+                na.CacheHead[b] = 0;
+                na.CacheCount[b] = 0;
             }
 
-            if(BlockCount >= 2) //Seed cache with the initial large free region
+            if(na.BlockCount >= 2) //Seed cache with the initial large free region
             {
-                int bkt = BucketForSize(BlockCount);
-                Cache[bkt][0]    = 0;
-                CacheHead[bkt]   = 0;
-                CacheCount[bkt]  = 1;
+                int bkt = Intern_BucketForSize(na.BlockCount);
+                na.Cache[bkt][0] = 0;
+                na.CacheHead[bkt] = 0;
+                na.CacheCount[bkt] = 1;
             }
 
-            return {};
+            return na;
         }
 
-        void* MallocBlocks(uint64 size)
+        template<typename T>
+        inline n_view<T> Malloc(uint64 count)
         {
+            uint64 size = sizeof(T) * count;
             if(size == 0)
                 size = 1;
 
-           uint32 neededBytes = (uint32)(DATA_OFFSET + size);
+            uint32 neededBytes = (uint32)(DATA_OFFSET + size);
             uint32 totalBlocks = (neededBytes + BLOCK_SIZE - 1) / BLOCK_SIZE;
             if(totalBlocks < 1)
                 totalBlocks = 1;
 
-            //1. Bump pointer fast path
-            if(BumpBlock < BlockCount)
+            if(BumpBlock < BlockCount) //1. Bump pointer fast path
             {
-                NodeAllocatorNode node = ReadNode(BumpBlock);
-                uint32 freeSize = BlockCountOf(node.Blocks);
-                if(!IsUsed(node.Blocks) &&
-                   freeSize >= totalBlocks &&
-                   freeSize <= (BlockCount - BumpBlock))
+                NodeAllocatorNode node = Intern_ReadNode(BumpBlock);
+                uint32 freeSize = Intern_BlockCountOf(node.Blocks);
+                if( !Intern_IsUsed(node.Blocks) &&
+                    freeSize >= totalBlocks &&
+                    freeSize <= (BlockCount - BumpBlock))
                 {
-                    int bkt = BucketForSize(freeSize);
-                    CacheRemove(bkt, BumpBlock);
-                    return AllocAt(BumpBlock, node, totalBlocks);
+                    int bkt = Intern_BucketForSize(freeSize);
+                    Intern_CacheRemove(bkt, BumpBlock);
+                    return { (T*)Intern_AllocAt(BumpBlock, node, totalBlocks), count };
                 }
             }
 
             //2. Size-class cache: scan matching bucket and larger
-            int startBucket = BucketForSize(totalBlocks);
+            int startBucket = Intern_BucketForSize(totalBlocks);
             for(int b = startBucket; b < BUCKET_COUNT; ++b)
             {
                 int cc = CacheCount[b];
@@ -229,14 +236,14 @@ namespace Nstd
                     if(cachedBlocks < totalBlocks) //cached size too small for this request
                         continue;
 
-                    NodeAllocatorNode node = ReadNode(cidx);
-                    n_assert_debug(!IsUsed(node.Blocks));
+                    NodeAllocatorNode node = Intern_ReadNode(cidx);
+                    n_assert_debug(!Intern_IsUsed(node.Blocks));
                     
                     #if 0
                     //Should not happen
-                    if(IsUsed(node.Blocks))
+                    if(Intern_IsUsed(node.Blocks))
                     {
-                        CacheRemove(b, cidx);
+                        Intern_CacheRemove(b, cidx);
                         cc = CacheCount[b];
                         scanned--;
                         continue;
@@ -244,11 +251,11 @@ namespace Nstd
                     #endif
 
                     {
-                        uint32 freeSize = BlockCountOf(node.Blocks);
+                        uint32 freeSize = Intern_BlockCountOf(node.Blocks);
                         if(freeSize >= totalBlocks && freeSize <= (BlockCount - cidx))
                         {
-                            CacheRemove(b, cidx);
-                            return AllocAt(cidx, node, totalBlocks);
+                            Intern_CacheRemove(b, cidx);
+                            return { (T*)Intern_AllocAt(cidx, node, totalBlocks), count };
                         }
                     }
                     ++scanned;
@@ -259,32 +266,34 @@ namespace Nstd
             uint32 cur = FreeHead;
             while(cur != NIL)
             {
-                NodeAllocatorNode node = ReadNode(cur);
-                if(!IsUsed(node.Blocks))
+                NodeAllocatorNode node = Intern_ReadNode(cur);
+                if(!Intern_IsUsed(node.Blocks))
                 {
-                    uint32 freeSize = BlockCountOf(node.Blocks);
+                    uint32 freeSize = Intern_BlockCountOf(node.Blocks);
                     if(freeSize >= totalBlocks && freeSize <= (BlockCount - cur))
                     {
-                        int bkt = BucketForSize(freeSize);
-                        CacheRemove(bkt, cur);
-                        return AllocAt(cur, node, totalBlocks);
+                        int bkt = Intern_BucketForSize(freeSize);
+                        Intern_CacheRemove(bkt, cur);
+                        return { (T*)Intern_AllocAt(cur, node, totalBlocks), count };
                     }
                 }
                 cur = node.Next;
             }
 
             //Exhausted, report stats for diagnostics
+            #if 0
             {
                 uint32 chainNodes  = 0;
                 uint32 chainBlocks = 0;
                 cur = FreeHead;
                 while(cur != NIL)
                 {
-                    NodeAllocatorNode cn = ReadNode(cur);
+                    NodeAllocatorNode cn = Intern_ReadNode(cur);
                     chainNodes++;
-                    if(chainNodes > 100000) break;
-                    if(!IsUsed(cn.Blocks))
-                        chainBlocks += BlockCountOf(cn.Blocks);
+                    if(chainNodes > 100000)
+                        break;
+                    if(!Intern_IsUsed(cn.Blocks))
+                        chainBlocks += Intern_BlockCountOf(cn.Blocks);
                     cur = cn.Next;
                 }
 
@@ -292,10 +301,10 @@ namespace Nstd
                 cur = FreeHead;
                 while(cur != NIL)
                 {
-                    NodeAllocatorNode cn = ReadNode(cur);
-                    if(!IsUsed(cn.Blocks))
+                    NodeAllocatorNode cn = Intern_ReadNode(cur);
+                    if(!Intern_IsUsed(cn.Blocks))
                     {
-                        uint32 s = BlockCountOf(cn.Blocks);
+                        uint32 s = Intern_BlockCountOf(cn.Blocks);
                         if(s > largestFreeChainBlock)
                             largestFreeChainBlock = s;
                     }
@@ -303,7 +312,7 @@ namespace Nstd
                 }
 
                 uint64 totalChainBytes     = chainBlocks * BLOCK_SIZE;
-                uint64 totalChainUsable    = UsableBytes(chainBlocks);
+                uint64 totalChainUsable    = Intern_UsableBytes(chainBlocks);
 
                 fprintf(stderr, 
                         "NodeAllocator OOM: need %u blocks (%zu bytes usable), "
@@ -317,18 +326,19 @@ namespace Nstd
                         (uint64)(totalChainUsable / (1024*1024)),
                         largestFreeChainBlock);
             }
+            #endif
 
-            return NULL;
+            return {};
         }
 
-        void* AllocAt(uint32 blockIdx, NodeAllocatorNode node, uint32 totalBlocks)
+        inline void* Intern_AllocAt(uint32 blockIdx, NodeAllocatorNode node, uint32 totalBlocks)
         {
-            uint32 freeSize = BlockCountOf(node.Blocks);
+            uint32 freeSize = Intern_BlockCountOf(node.Blocks);
             FreeBlockCount -= totalBlocks;
             if(freeSize == totalBlocks) //Exact fit
             {
-                node.Blocks = SetUsed(totalBlocks);
-                WriteNode(blockIdx, node);
+                node.Blocks = Intern_SetUsed(totalBlocks);
+                Intern_WriteNode(blockIdx, node);
                 return &Memory[blockIdx * BLOCK_SIZE + DATA_OFFSET];
             }
 
@@ -342,64 +352,71 @@ namespace Nstd
 
             if(node.Next != NIL)
             {
-                NodeAllocatorNode nextN = ReadNode(node.Next);
+                NodeAllocatorNode nextN = Intern_ReadNode(node.Next);
                 nextN.Prev = blockIdx + totalBlocks;
-                WriteNode(node.Next, nextN);
+                Intern_WriteNode(node.Next, nextN);
             }
 
-            node.Blocks = SetUsed(totalBlocks);
+            node.Blocks = Intern_SetUsed(totalBlocks);
             node.Next   = blockIdx + totalBlocks;
-            WriteNode(blockIdx, node);
-            WriteNode(blockIdx + totalBlocks, remNode);
+            Intern_WriteNode(blockIdx, node);
+            Intern_WriteNode(blockIdx + totalBlocks, remNode);
 
             if(BumpBlock == blockIdx) //Update bump pointer to split point
                 BumpBlock = blockIdx + totalBlocks;
 
             //Insert remainder into cache (fresh index from split, no stale entries possible)
-            CacheInsert(blockIdx + totalBlocks, remaining);
+            Intern_CacheInsert(blockIdx + totalBlocks, remaining);
             return &Memory[blockIdx * BLOCK_SIZE + DATA_OFFSET];
         }
 
-        void FreeBlocks(void* ptr)
+        inline bool OwnsPtr(void* ptr)
+        {
+            if(!ptr)
+                return false;
+            return ptr >= Memory.data && ptr < Memory.data + Memory.len;
+        }
+
+        inline void Free(void* ptr)
         {
             if(!ptr)
                 return;
 
-            uint8* mem = (uint8*)ptr;
-            if(mem < Memory.data || mem >= Memory.data + Memory.len)
+            if(!OwnsPtr(ptr))
                 return;
 
-            uint32 idx = BlockFromPtr(mem);
-            NodeAllocatorNode node = ReadNode(idx);
+            uint8* mem = (uint8*)ptr;
+            uint32 idx = Intern_BlockFromPtr(mem);
+            NodeAllocatorNode node = Intern_ReadNode(idx);
 
-            if(!IsUsed(node.Blocks)) //Already free
+            if(!Intern_IsUsed(node.Blocks)) //Already free
                 return;
 
             //Mark as free and merge with adjacent free blocks
-            uint32 origBlocks  = BlockCountOf(node.Blocks);
+            uint32 origBlocks  = Intern_BlockCountOf(node.Blocks);
             uint32 mergeIdx    = idx;
             uint32 mergeBlocks = origBlocks;
 
             FreeBlockCount += origBlocks;
-            CacheRemove(BucketForSize(mergeBlocks), idx);
+            Intern_CacheRemove(Intern_BucketForSize(mergeBlocks), idx);
 
             if(node.Prev != NIL) //Merge with predecessor if it's free
             {
-                NodeAllocatorNode predN = ReadNode(node.Prev);
-                if(!IsUsed(predN.Blocks))
+                NodeAllocatorNode predN = Intern_ReadNode(node.Prev);
+                if(!Intern_IsUsed(predN.Blocks))
                 {
-                    uint32 predBlocks = BlockCountOf(predN.Blocks);
+                    uint32 predBlocks = Intern_BlockCountOf(predN.Blocks);
                     //Evict absorbed predecessor from its cache bucket BEFORE links change
-                    CacheRemove(BucketForSize(predBlocks), node.Prev);
+                    Intern_CacheRemove(Intern_BucketForSize(predBlocks), node.Prev);
 
                     mergeIdx    = node.Prev;
                     mergeBlocks += predBlocks;
 
                     if(predN.Prev != NIL) //Wire grandparent to merged block
                     {
-                        NodeAllocatorNode gpN = ReadNode(predN.Prev);
+                        NodeAllocatorNode gpN = Intern_ReadNode(predN.Prev);
                         gpN.Next = mergeIdx;
-                        WriteNode(predN.Prev, gpN);
+                        Intern_WriteNode(predN.Prev, gpN);
                     }
                     else
                         FreeHead = mergeIdx;
@@ -410,9 +427,9 @@ namespace Nstd
                     //absorbed index
                     if(node.Next != NIL)
                     {
-                        NodeAllocatorNode downN = ReadNode(node.Next);
+                        NodeAllocatorNode downN = Intern_ReadNode(node.Next);
                         downN.Prev = mergeIdx;
-                        WriteNode(node.Next, downN);
+                        Intern_WriteNode(node.Next, downN);
                     }
                 }
             }
@@ -423,20 +440,20 @@ namespace Nstd
             uint32 succIdx = mergeIdx + mergeBlocks;
             if(succIdx < BlockCount)
             {
-                NodeAllocatorNode succN = ReadNode(succIdx);
-                if(!IsUsed(succN.Blocks))
+                NodeAllocatorNode succN = Intern_ReadNode(succIdx);
+                if(!Intern_IsUsed(succN.Blocks))
                 {
-                    uint32 succBlocks = BlockCountOf(succN.Blocks);
+                    uint32 succBlocks = Intern_BlockCountOf(succN.Blocks);
                     //Evict absorbed successor from its cache bucket BEFORE links change
-                    CacheRemove(BucketForSize(succBlocks), succIdx);
+                    Intern_CacheRemove(Intern_BucketForSize(succBlocks), succIdx);
 
                     mergeBlocks += succBlocks;
                     node.Next = succN.Next;
                     if(succN.Next != NIL)
                     {
-                        NodeAllocatorNode nnN = ReadNode(succN.Next);
+                        NodeAllocatorNode nnN = Intern_ReadNode(succN.Next);
                         nnN.Prev = mergeIdx;
-                        WriteNode(succN.Next, nnN);
+                        Intern_WriteNode(succN.Next, nnN);
                     }
                 }
             }
@@ -457,7 +474,7 @@ namespace Nstd
                         reachable = true;
                         break;
                     }
-                    NodeAllocatorNode cn = ReadNode(check);
+                    NodeAllocatorNode cn = Intern_ReadNode(check);
                     if(cn.Prev == NIL)
                         break;
                     check = cn.Prev;
@@ -468,107 +485,129 @@ namespace Nstd
 
             //Update node data and insert into cache */
             node.Blocks = mergeBlocks;
-            WriteNode(mergeIdx, node);
+            Intern_WriteNode(mergeIdx, node);
 
             //Cache the merged result
-            CacheInsert(mergeIdx, mergeBlocks);
+            Intern_CacheInsert(mergeIdx, mergeBlocks);
         }
         
-        bool OwnsPtr(void* ptr)
+        template<typename T>
+        inline n_view<T> Realloc(void* data, uint64 count)
         {
-            if(!ptr)
-                return false;
-            return ptr >= Memory.data && ptr < Memory.data + Memory.len;
-        }
-
-        static void* Malloc(void* c, uint64 byteSize)
-        {
-            NodeAllocator* context = (NodeAllocator*)c;
-            return context->MallocBlocks(byteSize);
-        }
-
-        static void Free(void* c, void* ptr)
-        {
-            NodeAllocator* context = (NodeAllocator*)c;
-            context->FreeBlocks(ptr);
-        }
-
-        static void* Realloc(void* c, void* p, uint64 byteSize)
-        {
-            NodeAllocator* context = (NodeAllocator*)c;
-            if(!p) 
-                return context->MallocBlocks(byteSize);
+            if(!data)
+                return Malloc<T>(count);
             
             //Read old size from node
-            uint8* mem = (uint8*)p;
-            int32 offset = (int32)(mem - context->Memory.data - DATA_OFFSET);
+            uint8* mem = (uint8*)data;
+            int32 offset = (int32)(mem - Memory.data - DATA_OFFSET);
             if(offset < 0 || (offset % (int32)BLOCK_SIZE) != 0)
-                return context->MallocBlocks(byteSize);
+                return {};
             
             uint32 blockIdx = (uint32)(offset / BLOCK_SIZE);
-            NodeAllocatorNode node = context->ReadNode(blockIdx);
-            uint64 oldUsable = context->UsableBytes(context->BlockCountOf(node.Blocks));
+            NodeAllocatorNode node = Intern_ReadNode(blockIdx);
+            uint64 oldUsable = Intern_UsableBytes(Intern_BlockCountOf(node.Blocks));
+            const uint64 byteSize = sizeof(T) * count;
             if(oldUsable >= byteSize) //No expansion needed
-                return p;
+                return { (T*)data, count };
             
-            void* newPtr = context->MallocBlocks(byteSize);
-            if(newPtr)
+            n_view<T> newData = Malloc<T>(count).data;
+            if(newData)
             {
-                memcpy(newPtr, p, oldUsable);
-                context->FreeBlocks(p);
+                n_view<uint8> oldData { (uint8*)data, oldUsable };
+                oldData.copy_to(newData.template as<uint8>());
+                Free(data);
             }
-            return newPtr;
+            return newData;
         }
-
-        static void FreeAll(void* c)
+        
+        inline void FreeAll()
         {
-            NodeAllocator* context = (NodeAllocator*)c;
-            if(!context->Memory)
+            if(!Memory)
                 return;
 
             //Reset to initial state: one big free region spanning entire pool
             NodeAllocatorNode initNode;
-            initNode.Next   = NIL;
-            initNode.Prev   = NIL;
-            initNode.Blocks = context->BlockCount;
-            context->WriteNode(0, initNode);
+            initNode.Next = NIL;
+            initNode.Prev = NIL;
+            initNode.Blocks = BlockCount;
+            Intern_WriteNode(0, initNode);
 
-            context->FreeHead       = 0;
-            context->BumpBlock      = 1;
-            context->FreeBlockCount = context->BlockCount;
+            FreeHead = 0;
+            BumpBlock = 1;
+            FreeBlockCount = BlockCount;
 
             for(int b = 0; b < BUCKET_COUNT; ++b)
             {
-                context->CacheHead[b]  = 0;
-                context->CacheCount[b] = 0;
+                CacheHead[b] = 0;
+                CacheCount[b] = 0;
             }
 
             //Re-seed cache with the initial large free region
-            if(context->BlockCount >= 2)
+            if(BlockCount >= 2)
             {
-                int bkt = context->BucketForSize(context->BlockCount);
-                context->Cache[bkt][0]     = 0;
-                context->CacheBlocks[bkt][0] = context->BlockCount;
-                context->CacheHead[bkt]    = 0;
-                context->CacheCount[bkt]   = 1;
+                int bkt = Intern_BucketForSize(BlockCount);
+                Cache[bkt][0] = 0;
+                CacheBlocks[bkt][0] = BlockCount;
+                CacheHead[bkt] = 0;
+                CacheCount[bkt] = 1;
             }
         }
-
-        static void Destroy(void* c)
+        
+        inline void Destroy()
+        {
+            memset(this, 0, sizeof(NodeAllocator));
+        }
+        
+        inline uint64 GetFreeBytes() const
+        {
+            return Intern_UsableBytes(FreeBlockCount);
+        }
+        
+        static void* ContextMalloc(void* c, uint64 byteSize)
         {
             NodeAllocator* context = (NodeAllocator*)c;
-            memset(context, 0, sizeof(NodeAllocator));
+            return context->Malloc<uint8>(byteSize).data;
         }
 
-        static uint64 GetFreeBytes(const void* c)
+        static void ContextFree(void* c, void* ptr)
+        {
+            NodeAllocator* context = (NodeAllocator*)c;
+            context->Free(ptr);
+        }
+
+        static void* ContextRealloc(void* c, void* p, uint64 byteSize)
+        {
+            NodeAllocator* context = (NodeAllocator*)c;
+            return context->Realloc<uint8>(p, byteSize).data;
+        }
+
+        static void ContextFreeAll(void* c)
+        {
+            NodeAllocator* context = (NodeAllocator*)c;
+            context->FreeAll();
+        }
+
+        static void ContextDestroy(void* c)
+        {
+            NodeAllocator* context = (NodeAllocator*)c;
+            context->Destroy();
+        }
+
+        static uint64 ContextGetFreeBytes(const void* c)
         {
             const NodeAllocator* context = (NodeAllocator*)c;
-            return context->UsableBytes(context->FreeBlockCount);
+            return context->GetFreeBytes();
         }
 
         inline Allocator MakeAllocator()
         {
-            return Allocator::Init(Malloc, Free, Realloc, FreeAll, Destroy, GetFreeBytes, this);
+            return Allocator::Init( ContextMalloc, 
+                                    ContextFree, 
+                                    ContextRealloc, 
+                                    ContextFreeAll, 
+                                    ContextDestroy, 
+                                    ContextGetFreeBytes, 
+                                    this);
         }
     };
 }

@@ -7,7 +7,18 @@ API:
 template<usize BLOCK_SIZE = 16, n_enable_if(BLOCK_SIZE >= sizeof(FreeNode))>
 struct PageAllocator
 {
-    inline n_result<void> Init(n_view<uint8> backing);
+    static inline n_result<PageAllocator> Init(n_view<uint8> backing);
+    inline bool OwnsPtr(void* ptr);
+    inline void FreeAll();
+    inline void Destroy();
+    
+    template<typename T>
+    inline n_view<T> Malloc(uint64 count);
+    inline void Free(void* data);
+    
+    template<typename T>
+    inline n_view<T> Realloc(void* data, uint64 count);
+    inline uint64 GetFreeBytes() const;
     inline Allocator MakeAllocator();
 };
 ```
@@ -59,34 +70,7 @@ namespace Nstd
                 n_assert_debug(nodeRef.Blocks < Control.Len()); \
             } while(0)
         
-        bool MergeNodeBefore(FreeNode& cur, uint32 curIndex)
-        {
-            ASSERT_NODE_DEBUG(cur, curIndex);
-            if(cur.Prev == curIndex)
-                return false;
-            
-            FreeNode prev = Blocks.read<FreeNode>(BLOCK_SIZE * cur.Prev);
-            ASSERT_NODE_DEBUG(prev, cur.Prev);
-            if(cur.Prev + prev.Blocks != curIndex)
-                return false;
-            
-            if(cur.Next != curIndex)
-            {
-                n_assert(cur.Next > curIndex);
-                FreeNode next = Blocks.read<FreeNode>(BLOCK_SIZE * cur.Next);
-                ASSERT_NODE_DEBUG(next, cur.Next);
-                n_assert(next.Prev == curIndex);
-                next.Prev = cur.Prev;
-                Blocks.write(BLOCK_SIZE * cur.Next, next);
-            }
-            
-            prev.Blocks += cur.Blocks;
-            prev.Next = cur.Next == curIndex ? cur.Prev : cur.Next;
-            Blocks.write(BLOCK_SIZE * cur.Prev, prev);
-            return true;
-        }
-        
-        bool MergeNodeAfter(FreeNode& cur, uint32 curIndex)
+        inline bool Intern_MergeNodeAfter(n_ref FreeNode& cur, uint32 curIndex)
         {
             ASSERT_NODE_DEBUG(cur, curIndex);
             if(cur.Next == curIndex)
@@ -113,7 +97,17 @@ namespace Nstd
             return true;
         }
         
-        bool InsertFreeNodeAfter(FreeNode& cur, uint32 curIndex, FreeNode& newNode, uint32 newIndex)
+        inline bool OwnsPtr(void* ptr)
+        {
+            if(!ptr)
+                return false;
+            return ptr >= Blocks.data && ptr < Blocks.data + PAGE_SIZE * PageCount;
+        }
+        
+        inline bool Intern_InsertFreeNodeAfter( n_ref FreeNode& cur, 
+                                                uint32 curIndex, 
+                                                n_ref FreeNode& newNode, 
+                                                uint32 newIndex)
         {
             n_assert(curIndex < newIndex);
             n_assert(curIndex + cur.Blocks <= newIndex);
@@ -144,7 +138,10 @@ namespace Nstd
             return true;
         }
         
-        bool InsertFreeNodeBefore(FreeNode& cur, uint32 curIndex, FreeNode& newNode, uint32 newIndex)
+        inline bool Intern_InsertFreeNodeBefore(n_ref FreeNode& cur, 
+                                                uint32 curIndex, 
+                                                n_ref FreeNode& newNode, 
+                                                uint32 newIndex)
         {
             n_assert(curIndex > newIndex);
             n_assert(newIndex + newNode.Blocks <= curIndex);
@@ -177,7 +174,7 @@ namespace Nstd
             return true;
         }
         
-        FreeNode SplitFreeNode(FreeNode& cur, uint32 curIndex, uint32 splitIndex)
+        inline FreeNode Intern_SplitFreeNode(n_ref FreeNode& cur, uint32 curIndex, uint32 splitIndex)
         {
             ASSERT_NODE_DEBUG(cur, curIndex);
             n_assert(splitIndex > curIndex && splitIndex < curIndex + splitIndex);
@@ -206,7 +203,7 @@ namespace Nstd
         }
         
         
-        void RemoveFreeNode(FreeNode& cur, uint32 curIndex)
+        inline void Intern_RemoveFreeNode(n_ref FreeNode& cur, uint32 curIndex)
         {
             ASSERT_NODE_DEBUG(cur, curIndex);
             
@@ -251,8 +248,10 @@ namespace Nstd
             Blocks.write(BLOCK_SIZE * cur.Next, next);
         }
         
-        inline n_result<void> Init(n_view<uint8> backing)
+        inline n_result<PageAllocator> Init(n_view<uint8> backing)
         {
+            PageAllocator pa = {};
+            
             usize reserveSize;
             n_use_error_defer();
             
@@ -269,25 +268,29 @@ namespace Nstd
                                     pageCount);
             }
             
-            PageCount = pageCount;
-            Blocks = backing;
+            pa.PageCount = pageCount;
+            pa.Blocks = backing;
             
             n_check_true(BLOCK_SIZE * DATA_START_INDEX < Blocks.len);
-            Blocks.sub(0, BLOCK_SIZE * DATA_START_INDEX).zero();
+            pa.Blocks.sub(0, BLOCK_SIZE * DATA_START_INDEX).zero();
             
-            Control = Control.Init({ Blocks.data, BLOCK_SIZE * PageCount });
-            Key = Key.Init({ &Blocks[BLOCK_SIZE * PageCount], BLOCK_SIZE * PageCount });
-            Control.SetBitsAt<1>(0, DATA_START_INDEX).n_try();
-            Key.SetBit<1>(0);
-            UsedBlocksCount = DATA_START_INDEX;
+            pa.Control = pa.Control.Init({ pa.Blocks.data, BLOCK_SIZE * pa.PageCount });
+            pa.Key = pa.Key.Init({ &pa.Blocks[BLOCK_SIZE * pa.PageCount], BLOCK_SIZE * pa.PageCount });
+            pa.Control.SetBitsAt<1>(0, DATA_START_INDEX).n_try();
+            pa.Key.SetBit<1>(0);
+            pa.UsedBlocksCount = DATA_START_INDEX;
             
-            FreeNodeHead = DATA_START_INDEX;
-            FreeNode freeNode = { FreeNodeHead, FreeNodeHead, Control.Len() - FreeNodeHead };
-            Blocks.write(BLOCK_SIZE * FreeNodeHead, freeNode);
-            return {};
+            pa.FreeNodeHead = DATA_START_INDEX;
+            FreeNode freeNode = { 
+                                    pa.FreeNodeHead, 
+                                    pa.FreeNodeHead, 
+                                    pa.Control.Len() - pa.FreeNodeHead 
+                                };
+            pa.Blocks.write(BLOCK_SIZE * pa.FreeNodeHead, freeNode);
+            return pa;
         }
         
-        inline uint32 FitBlocks(uint64 fitByteSize)
+        inline uint32 Intern_FitBlocks(uint64 fitByteSize)
         {
             const uint32 fitBlocksCount = (fitByteSize + (BLOCK_SIZE - 1)) / BLOCK_SIZE;
             if(Control.Len() - DATA_START_INDEX < fitBlocksCount)
@@ -316,7 +319,7 @@ namespace Nstd
         }
         
         //NOTE: caller will set Control/Key bits
-        inline bool UseFreeNode(uint32 index, uint32 blocks)
+        inline bool Intern_UseFreeNode(uint32 index, uint32 blocks)
         {
             n_assert(index >= DATA_START_INDEX && index < Control.Len());
             
@@ -327,21 +330,21 @@ namespace Nstd
             
             if(blocks == curFreeNode.Blocks) //Use whole block, remove from list
             {
-                RemoveFreeNode(curFreeNode, index);
+                Intern_RemoveFreeNode(n_ref curFreeNode, index);
                 return true;
             }
             
             uint32 newIndex = index + blocks;
-            SplitFreeNode(curFreeNode, index, newIndex);
+            Intern_SplitFreeNode(n_ref curFreeNode, index, newIndex);
             
-            RemoveFreeNode(curFreeNode, index);
+            Intern_RemoveFreeNode(n_ref curFreeNode, index);
             return true;
         }
         
         //NOTE: UsedBlocksCount and FreeNode not maintained if OVERLAP is true. It's the caller 
         //      responsibility
         template<bool OVERLAP = false>
-        inline void* UseBlocks(uint32 index, uint64 bytes)
+        inline void* Intern_UseBlocks(uint32 index, uint64 bytes)
         {
             n_assert(index >= DATA_START_INDEX && index < Control.Len());
             const usize blocksNeeded = (bytes + (BLOCK_SIZE - 1)) / BLOCK_SIZE;
@@ -351,7 +354,7 @@ namespace Nstd
                 n_assert(!Control.GetBit(index));
                 n_assert(!Key.GetBit(index));
                 n_assert(Control.GetBit(index - 1));
-                if(!UseFreeNode(index, blocksNeeded))
+                if(!Intern_UseFreeNode(index, blocksNeeded))
                     return NULL;
                 
                 n_assert(   UsedBlocksCount >= DATA_START_INDEX && 
@@ -367,9 +370,9 @@ namespace Nstd
             return &Blocks[index * BLOCK_SIZE];
         }
         
-        inline uint32 FindIndex(void* ptr)
+        inline uint32 Intern_FindIndex(void* ptr)
         {
-            if(ptr < Blocks.data || ptr >= Blocks.data + PAGE_SIZE * PageCount)
+            if(!OwnsPtr(ptr))
                 return Control.Len();
             
             n_assert(((ptrdiff_t)ptr - (ptrdiff_t)Blocks.data) % BLOCK_SIZE == 0);
@@ -391,7 +394,7 @@ namespace Nstd
         }
         #endif
         
-        inline uint32 GetOccupiedBlocksCount(uint32 index)
+        inline uint32 Intern_GetOccupiedBlocksCount(uint32 index)
         {
             usize endIndex = index;
             if(index == Control.Len() - 1)
@@ -451,7 +454,7 @@ namespace Nstd
             return endIndex - index;
         }
         
-        inline void FreeBlocks(uint32 index)
+        inline void Intern_FreeBlocks(uint32 index)
         {
             if(index >= Control.Len())
                 return;
@@ -459,7 +462,7 @@ namespace Nstd
             n_assert(Control.GetBit(index));
             n_assert(Key.GetBit(index));
             
-            uint32 blocksWillBeFree = GetOccupiedBlocksCount(index);
+            uint32 blocksWillBeFree = Intern_GetOccupiedBlocksCount(index);
             usize endIndex = index + blocksWillBeFree;
             
             //Check for adjacent free neighbors
@@ -487,10 +490,10 @@ namespace Nstd
                 FreeNode newNode;
                 newNode.Blocks = blocksWillBeFree;
 
-                InsertFreeNodeAfter(prevNode, prevIndex, newNode, index);
-                MergeNodeAfter(prevNode, prevIndex);
+                Intern_InsertFreeNodeAfter(n_ref prevNode, prevIndex, n_ref newNode, index);
+                Intern_MergeNodeAfter(n_ref prevNode, prevIndex);
                 if(hasNext)
-                    MergeNodeAfter(prevNode, prevIndex);
+                    Intern_MergeNodeAfter(n_ref prevNode, prevIndex);
                 return;
             }
             
@@ -501,8 +504,8 @@ namespace Nstd
             {
                 FreeNode nextNode = Blocks.read<FreeNode>(BLOCK_SIZE * endIndex);
                 ASSERT_NODE_DEBUG(nextNode, endIndex);
-                InsertFreeNodeBefore(nextNode, endIndex, cur, index);
-                MergeNodeAfter(cur, index);
+                Intern_InsertFreeNodeBefore(n_ref nextNode, endIndex, n_ref cur, index);
+                Intern_MergeNodeAfter(n_ref cur, index);
                 return;
             }
             
@@ -520,7 +523,7 @@ namespace Nstd
             {
                 FreeNode oldHead = Blocks.read<FreeNode>(BLOCK_SIZE * FreeNodeHead);
                 ASSERT_NODE_DEBUG(oldHead, FreeNodeHead);
-                InsertFreeNodeBefore(oldHead, FreeNodeHead, cur, index);
+                Intern_InsertFreeNodeBefore(n_ref oldHead, FreeNodeHead, n_ref cur, index);
                 FreeNodeHead = index;
                 return;
             }
@@ -533,7 +536,7 @@ namespace Nstd
             {
                 FreeNode nextNode = Blocks.read<FreeNode>(BLOCK_SIZE * r.value);
                 ASSERT_NODE_DEBUG(nextNode, r.value);
-                InsertFreeNodeBefore(nextNode, (uint32)r.value, cur, index);
+                Intern_InsertFreeNodeBefore(n_ref nextNode, (uint32)r.value, n_ref cur, index);
             }
             else //Scan backwards
             {
@@ -551,11 +554,11 @@ namespace Nstd
 
                 FreeNode tail = Blocks.read<FreeNode>(BLOCK_SIZE * tailIndex);
                 ASSERT_NODE_DEBUG(tail, tailIndex);
-                InsertFreeNodeAfter(tail, tailIndex, cur, index);
+                Intern_InsertFreeNodeAfter(n_ref tail, tailIndex, n_ref cur, index);
             }
         }
         
-        inline uint32 ReallocBlocks(uint32 index, uint64 bytes)
+        inline uint32 Intern_ReallocBlocks(uint32 index, uint64 bytes)
         {
             n_assert(index < Control.Len());
             n_assert(Control.GetBit(index));
@@ -563,7 +566,7 @@ namespace Nstd
             if(bytes > (PAGE_SIZE - BLOCK_SIZE) * PageCount)
                 return Control.Len();
             
-            uint32 blocksOccupied = GetOccupiedBlocksCount(index);
+            uint32 blocksOccupied = Intern_GetOccupiedBlocksCount(index);
             const uint32 totalBlocksNeeded = ((bytes + BLOCK_SIZE - 1) / BLOCK_SIZE);
             if(totalBlocksNeeded == blocksOccupied)
                 return index;
@@ -586,8 +589,8 @@ namespace Nstd
                     FreeNode nextFree = Blocks.read<FreeNode>(BLOCK_SIZE * shrinkEnd);
                     ASSERT_NODE_DEBUG(nextFree, shrinkEnd);
 
-                    InsertFreeNodeBefore(nextFree, shrinkEnd, cur, shrinkStart);
-                    MergeNodeAfter(cur, shrinkStart);
+                    Intern_InsertFreeNodeBefore(n_ref nextFree, shrinkEnd, n_ref cur, shrinkStart);
+                    Intern_MergeNodeAfter(n_ref cur, shrinkStart);
                 }
                 else
                 {
@@ -605,7 +608,10 @@ namespace Nstd
                     {
                         FreeNode oldHead = Blocks.read<FreeNode>(BLOCK_SIZE * FreeNodeHead);
                         ASSERT_NODE_DEBUG(oldHead, FreeNodeHead);
-                        InsertFreeNodeBefore(oldHead, FreeNodeHead, cur, shrinkStart);
+                        Intern_InsertFreeNodeBefore(n_ref oldHead, 
+                                                    FreeNodeHead, 
+                                                    n_ref cur, 
+                                                    shrinkStart);
                         FreeNodeHead = shrinkStart;
                     }
                     else
@@ -618,7 +624,10 @@ namespace Nstd
                         {
                             FreeNode nextNode = Blocks.read<FreeNode>(BLOCK_SIZE * r.value);
                             ASSERT_NODE_DEBUG(nextNode, r.value);
-                            InsertFreeNodeBefore(nextNode, (uint32)r.value, cur, shrinkStart);
+                            Intern_InsertFreeNodeBefore(n_ref nextNode, 
+                                                        (uint32)r.value, 
+                                                        n_ref cur, 
+                                                        shrinkStart);
                         }
                         else
                         {
@@ -636,14 +645,14 @@ namespace Nstd
 
                             FreeNode tail = Blocks.read<FreeNode>(BLOCK_SIZE * tailIndex);
                             ASSERT_NODE_DEBUG(tail, tailIndex);
-                            InsertFreeNodeAfter(tail, tailIndex, cur, shrinkStart);
+                            Intern_InsertFreeNodeAfter(n_ref tail, tailIndex, n_ref cur, shrinkStart);
                         }
                     }
-                }
+                } //else
 
                 Key.SetBit<false>(shrinkStart);
                 return index;
-            }
+            } //if(totalBlocksNeeded < blocksOccupied) //Shrink
             
             //Grow
             //Existing blocks are not at the end and has empty space after
@@ -661,111 +670,144 @@ namespace Nstd
                 {
                     uint32 growBlocks = totalBlocksNeeded - blocksOccupied;
                     if(nextFree.Blocks == growBlocks) //Used up all the free blocks in next free
-                        RemoveFreeNode(nextFree, nextFreeIndex);
+                        Intern_RemoveFreeNode(n_ref nextFree, nextFreeIndex);
                     else //Partial consumption
                     {
                         uint32 newNextFreeIndex = index + totalBlocksNeeded;
                         n_assert(newNextFreeIndex > nextFreeIndex);
                         n_assert(newNextFreeIndex < nextFreeIndex + nextFree.Blocks);
-                        (void)SplitFreeNode(nextFree, nextFreeIndex, newNextFreeIndex);
+                        (void)Intern_SplitFreeNode(n_ref nextFree, nextFreeIndex, newNextFreeIndex);
                         n_assert(nextFree.Blocks == growBlocks);
-                        RemoveFreeNode(nextFree, nextFreeIndex);
+                        Intern_RemoveFreeNode(n_ref nextFree, nextFreeIndex);
                     }
                     
-                    UseBlocks<true>(index, bytes);
+                    Intern_UseBlocks<true>(index, bytes);
                     UsedBlocksCount += growBlocks;
                     return index;
                 }
             }
             
             //Try refitting...
-            uint32 fi = FitBlocks(bytes);
+            uint32 fi = Intern_FitBlocks(bytes);
             if(fi == Control.Len())
                 return fi;
             
-            void* p = UseBlocks<false>(fi, bytes);
+            void* p = Intern_UseBlocks<false>(fi, bytes);
             memcpy(p, &Blocks[index * BLOCK_SIZE], blocksOccupied * BLOCK_SIZE);
             
-            FreeBlocks(index);
+            Intern_FreeBlocks(index);
             return fi;
         }
         
-        bool OwnsPtr(void* ptr)
+        inline void FreeAll()
         {
-            if(!ptr)
-                return false;
-            return ptr >= Blocks.data && ptr < Blocks.data + Blocks.len;
-        }
-
-        static void FreeAll(void* c)
-        {
-            PageAllocator* context = (PageAllocator*)c;
-            memset(context->Blocks.data, 0, BLOCK_SIZE * context->DATA_START_INDEX);
-            context->Control.SetBits<1>(0, context->DATA_START_INDEX);
-            context->Key.SetBit<1>(0);
-            context->UsedBlocksCount = context->DATA_START_INDEX;
+            Blocks.sub(0, BLOCK_SIZE * DATA_START_INDEX).zero();
+            Control.SetBits<1>(0, DATA_START_INDEX);
+            Key.SetBit<1>(0);
+            UsedBlocksCount = DATA_START_INDEX;
             
-            context->FreeNodeHead = context->DATA_START_INDEX;
+            FreeNodeHead = DATA_START_INDEX;
             FreeNode freeNode = {
-                                    context->FreeNodeHead, 
-                                    context->FreeNodeHead, 
-                                    context->Control.Len() - context->FreeNodeHead 
+                                    FreeNodeHead, 
+                                    FreeNodeHead, 
+                                    Control.Len() - FreeNodeHead 
                                 };
-            memcpy(&context->Blocks[BLOCK_SIZE * context->FreeNodeHead], &freeNode, sizeof(freeNode));
+            Blocks.write<FreeNode>(BLOCK_SIZE * FreeNodeHead, n_in freeNode);
         }
         
-        static void Destroy(void* c)
+        inline void Destroy()
         {
-            PageAllocator* context = (PageAllocator*)c;
-            memset(context, 0, sizeof(PageAllocator<BLOCK_SIZE>));
+            memset(this, 0, sizeof(PageAllocator));
         }
         
-        static void* Malloc(void* c, uint64 byteSize)
+        template<typename T>
+        inline n_view<T> Malloc(uint64 count)
         {
-            PageAllocator* context = (PageAllocator*)c;
-            if(!byteSize)
-                return NULL;
+            if(!count)
+                return {};
             
-            uint32 index = context->FitBlocks(byteSize);
-            if(index == context->Control.Len())
-                return NULL;
+            uint64 byteSize = count * sizeof(T);
+            uint32 index = Intern_FitBlocks(byteSize);
+            if(index == Control.Len())
+                return {};
             
-            return context->UseBlocks<false>(index, byteSize);
+            return { (T*)Intern_UseBlocks<false>(index, byteSize), count };
         }
         
-        static void Free(void* c, void* p)
+        inline void Free(void* data)
         {
-            PageAllocator* context = (PageAllocator*)c;
-            if(!p)
+            if(!data)
                 return;
-            context->FreeBlocks(context->FindIndex(p));
+            Intern_FreeBlocks(Intern_FindIndex(data));
         }
         
-        static void* Realloc(void* c, void* p, uint64 byteSize)
+        template<typename T>
+        inline n_view<T> Realloc(void* data, uint64 count)
+        {
+            if(!data)
+                return {};
+            
+            uint32 i = Intern_FindIndex(data);
+            if(i == Control.Len())
+                return {};
+            
+            uint64 byteSize = sizeof(T) * count;
+            uint32 ri = Intern_ReallocBlocks(i, byteSize);
+            if(ri == Control.Len())
+                return {};
+            return { (T*)&Blocks[ri * BLOCK_SIZE], count };
+        }
+        
+        inline uint64 GetFreeBytes() const
+        {
+            return (Control.Len() - UsedBlocksCount) * BLOCK_SIZE;
+        }
+        
+        static void ContextFreeAll(void* c)
         {
             PageAllocator* context = (PageAllocator*)c;
-            if(!p)
-                return NULL;
-            
-            uint32 i = context->FindIndex(p);
-            if(i == context->Control.Len())
-                return NULL;
-            
-            uint32 ri = context->ReallocBlocks(i, byteSize);
-            if(ri == context->Control.Len())
-                return NULL;
-            return &context->Blocks[ri * BLOCK_SIZE];
+            context->FreeAll();
         }
         
-        static uint64 GetFreeBytes(const void* c)
+        static void ContextDestroy(void* c)
+        {
+            PageAllocator* context = (PageAllocator*)c;
+            context->Destroy();
+        }
+        
+        static void* ContextMalloc(void* c, uint64 byteSize)
+        {
+            PageAllocator* context = (PageAllocator*)c;
+            return context->Malloc<uint8>(byteSize).data;
+        }
+        
+        static void ContextFree(void* c, void* p)
+        {
+            PageAllocator* context = (PageAllocator*)c;
+            context->Free(p);
+        }
+        
+        static void* ContextRealloc(void* c, void* p, uint64 byteSize)
+        {
+            PageAllocator* context = (PageAllocator*)c;
+            return context->Realloc<uint8>(p, byteSize).data;
+        }
+        
+        static uint64 ContextGetFreeBytes(const void* c)
         {
             const PageAllocator* context = (PageAllocator*)c;
-            return (context->Control.Len() - context->UsedBlocksCount) * BLOCK_SIZE;
+            return context->GetFreeBytes();
         }
         
         inline Allocator MakeAllocator()
         {
-            return Allocator::Init(Malloc, Free, Realloc, FreeAll, Destroy, GetFreeBytes, this);
+            return Allocator::Init( ContextMalloc, 
+                                    ContextFree, 
+                                    ContextRealloc, 
+                                    ContextFreeAll, 
+                                    ContextDestroy, 
+                                    ContextGetFreeBytes, 
+                                    this);
         }
         
         #undef ASSERT_NODE_DEBUG

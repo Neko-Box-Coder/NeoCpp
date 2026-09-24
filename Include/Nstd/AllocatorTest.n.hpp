@@ -359,26 +359,22 @@ namespace Nstd
             n_view<uint8> backing = n_view<uint8>((uint8*)NSTD_ALLOC_MALLOC(7 MB), 7 MB);
             
             #if 1
-                Nstd::HeapAllocator h = {};
-                h.Init(BENCH_SAMPLE_N);
+                Nstd::HeapAllocator h = h.Init(BENCH_SAMPLE_N).n_try();
                 Nstd::Allocator alloc = h.MakeAllocator();
             #endif
             
             #if 0
-                Nstd::PageAllocator<16> p = {};
-                p.Init(backing).n_try();
+                Nstd::PageAllocator<16> p = p.Init(backing).n_try();
                 Nstd::Allocator alloc = p.MakeAllocator();
             #endif
             
             #if 0
-                Nstd::NodeAllocator<> n = {};
-                n.Init(backing).n_try();
+                Nstd::NodeAllocator<> n = n.Init(backing).n_try();
                 Nstd::Allocator alloc = n.MakeAllocator();
             #endif
 
             #if 0
-                Nstd::FastAllocator<> f = {};
-                f.Init(backing).n_try();
+                Nstd::FastAllocator<> f = f.Init(backing).n_try();
                 Nstd::Allocator alloc = f.MakeAllocator();
             #endif
         #endif
