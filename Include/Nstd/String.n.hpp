@@ -216,14 +216,6 @@ namespace Nstd
         
         inline n_result<void> Intern_AppendFormatBase(  n_view<const char> format, 
                                                         n_ref int& index, 
-                                                        const char* arg)
-        {
-            Intern_AppendFormatBase(format, index, n_view<const char>(arg)).n_try();
-            return {};
-        }
-        
-        inline n_result<void> Intern_AppendFormatBase(  n_view<const char> format, 
-                                                        n_ref int& index, 
                                                         n_view<const char> arg)
         {
             n_check_lt(format.len, 28);
@@ -249,6 +241,22 @@ namespace Nstd
                             lenNeeded,
                             "Format substitution failed at %i", 
                             index);
+            return {};
+        }
+        
+        inline n_result<void> Intern_AppendFormatBase(  n_view<const char> format, 
+                                                        n_ref int& index, 
+                                                        const char* arg)
+        {
+            Intern_AppendFormatBase(format, index, n_view<const char>(arg)).n_try();
+            return {};
+        }
+        
+        inline n_result<void> Intern_AppendFormatBase(  n_view<const char> format, 
+                                                        n_ref int& index, 
+                                                        const Nstd::String arg)
+        {
+            Intern_AppendFormatBase(format, index, arg.ToView()).n_try();
             return {};
         }
         
