@@ -23,8 +23,8 @@ struct String
     inline n_result<void> Remove(uint64 index);
     inline n_result<void> InsertString(uint64 index, n_view<const char> v);
     inline n_result<void> RemoveRange(uint64 index, uint64 len);
-    inline uint64 FindString(n_view<const char> v, uint64 startIndex = 0) const;
-    inline n_result<uint64> ReverseFindString(n_view<char> v, uint64 startIndex);
+    inline uint64 FindSubString(n_view<const char> sub, uint64 startIndex = 0) const;
+    inline n_result<uint64> ReverseFindSubString(n_view<const char> sub, uint64 startIndex) const;
     
     template<typename... Ts>
     inline n_result<void> AppendFormat(n_view<const char> format, Ts... args);
@@ -40,6 +40,7 @@ struct String
 #include "ncpp.n.hpp"
 #include "./Allocator.n.hpp"
 #include "./List.n.hpp"
+#include "./StringUtil.n.hpp"
 
 #include "../Core/External/printf.hpp"
 #include <string.h>
@@ -177,17 +178,9 @@ namespace Nstd
         [   ] <-- v.len = 3
         ```
         */
-        inline uint64 FindString(n_view<const char> v, uint64 startIndex = 0) const
+        inline uint64 FindSubString(n_view<const char> sub, uint64 startIndex = 0) const
         {
-            if(!Len() || !v || Len() < v.len || startIndex >= Len())
-                return Len();
-
-            for(char* p = strchr(&Intern_Chars.Data[startIndex], *v.data); p; p = strchr(++p, *v.data))
-            {
-                if(strncmp(p, v.data, v.len) == 0)
-                    return (uint64)(p - &Intern_Chars.Data[startIndex]);
-            }
-            return Len();
+            return Nstd::FindSubString(ToConstView(), sub, startIndex);
         }
         
         /*
@@ -198,20 +191,9 @@ namespace Nstd
                   [   ] <-- v.len = 3
         ```
         */
-        inline n_result<uint64> ReverseFindString(n_view<char> v, uint64 startIndex)
+        inline n_result<uint64> ReverseFindSubString(n_view<const char> sub, uint64 startIndex) const
         {
-            if(!Len() || !v || Len() < v.len || startIndex >= Len() || startIndex < v.len - 1)
-                return Len();
-
-            for(int64 i = startIndex + 1 - v.len; i >= 0; --i)
-            {
-                if(Intern_Chars.At(i) != v.at<false>(0))
-                    continue;
-                
-                if(strncmp(&Intern_Chars.At(i), v.data, v.len) == 0)
-                    return i;
-            }
-            return Len();
+            return Nstd::ReverseFindSubString(ToConstView(), sub, startIndex);
         }
         
         inline n_result<void> Intern_AppendFormatBase(  n_view<const char> format, 
@@ -381,12 +363,12 @@ namespace Nstd
             return {};
         }
         
-        inline n_result<uint64> RemoveString(n_view<const char> v)
+        inline n_result<uint64> RemoveSubString(n_view<const char> sub)
         {
-            uint64 f = FindString(v);
+            uint64 f = FindSubString(sub);
             if(f == Len())
                 return f;
-            RemoveRange(f, v.len).n_try();
+            RemoveRange(f, sub.len).n_try();
             return f;
         }
         

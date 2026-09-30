@@ -46,6 +46,7 @@ IncludePaths:
 #include "Nstd/Threads.n.hpp"
 #include "Nstd/Filesystem.n.hpp"
 #include "Nstd/ReportError.n.hpp"
+#include "Nstd/StringUtil.n.hpp"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -315,20 +316,20 @@ n_result<int> Main(int, char**)
         s.RemoveRange(9, 5).n_try();
         printf("String: \"%s\" with len %" PRIu64 "\n", s.Data(), s.Len());
         
-        uint64 f = s.FindString("Test3");
+        uint64 f = s.FindSubString("Test3");
         printf("Test3 is at index %" PRIu64 "\n", f);
         
-        f = s.FindString("Test5");
+        f = s.FindSubString("Test5");
         printf("Test5 is at index %" PRIu64 "\n", f);
         
-        f = s.FindString("Test2");
+        f = s.FindSubString("Test2");
         n_check_eq(f, s.Len());
         printf("Test2 is not found\n");
         
-        s.RemoveString("Test5").n_try();
+        s.RemoveSubString("Test5").n_try();
         printf("String: \"%s\" with len %" PRIu64 "\n", s.Data(), s.Len());
         
-        s.RemoveString("Test3").n_try();
+        s.RemoveSubString("Test3").n_try();
         printf("String: \"%s\" with len %" PRIu64 "\n", s.Data(), s.Len());
     
         s.AppendFormat("Hello {-10}", "World").n_try();
