@@ -366,7 +366,7 @@ namespace Nstd
             if(s < format.len)
             {
                 ++index;
-                Intern_AppendFormat(format.sub(s, i - s), index, args...).n_try();
+                Intern_AppendFormat(format.sub(s, format.len - s), index, args...).n_try();
             }
             
             return {};
