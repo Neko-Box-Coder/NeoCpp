@@ -233,7 +233,7 @@ namespace Nstd
             formatClone[l++] = '*';
             formatClone[l++] = 's';
             formatClone[l++] = '\0';
-            int lenNeeded = snprintf_(NULL, 0, formatClone.data, (int)arg.len, arg);
+            int lenNeeded = snprintf_(NULL, 0, formatClone.data, (int)arg.len, arg.data);
             uint64 start = Len();
             Resize(start + lenNeeded).n_try();
             
