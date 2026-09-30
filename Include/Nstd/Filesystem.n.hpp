@@ -184,20 +184,30 @@ namespace Nstd
     {
         tinydir_dir Dir;
         tinydir_file CurrentFile;
+        int Index;
 
         inline n_result<bool> Next()
         {
-            int ret = tinydir_next(&Dir);
-            if(ret < 0)
-                return n_error_msg("Failed to advance directory iterator");
-
-            if(!Dir.has_next)
-                return false;
-
-            if(tinydir_readfile(&Dir, &CurrentFile) < 0)
-                return n_error_msg("Failed to read directory entry data");
-
-            return true;
+            if(Index == -1)
+            {
+                int ret = tinydir_next(&Dir);
+                if(ret < 0)
+                    return n_error_msg("Failed to advance directory iterator");
+                if(!Dir.has_next)
+                    return false;
+                if(tinydir_readfile(&Dir, &CurrentFile) < 0)
+                    return n_error_msg("Failed to read directory entry data");
+                return true;
+            }
+            else
+            {
+                ++Index;
+                if(Index >= Dir.n_files)
+                    return false;
+                if(tinydir_readfile_n(&Dir, &CurrentFile, Index) < 0)
+                    return n_error_msg("Failed to read directory entry data");
+                return true;
+            }
         }
 
         inline n_result<DirEntry> Current()
@@ -304,14 +314,25 @@ namespace Nstd
         DirIterator iter = {};
         int ret;
         if(!sorted)
+        {
             ret = tinydir_open(&iter.Dir, pathBuf.data);
+            n_check_eq_fmt(ret, 0, "Failed to open directory '%s'", pathBuf.data);
+            if(tinydir_readfile(&iter.Dir, &iter.CurrentFile) < 0)
+                return n_error_msg("Failed to read directory entry data");
+            iter.Index = -1;
+        }
         else
+        {
             ret = tinydir_open_sorted(&iter.Dir, pathBuf.data);
-        if(ret != 0)
-            return n_error_msg("Failed to open directory '%s'", pathBuf.data);
+            n_check_eq_fmt(ret, 0, "Failed to open directory '%s'", pathBuf.data);
+            iter.Index = 0;
+            if(iter.Dir.n_files > 0)
+            {
+                if(tinydir_readfile_n(&iter.Dir, &iter.CurrentFile, 0) < 0)
+                    return n_error_msg("Failed to read directory entry data");
+            }
+        }
 
-        if(tinydir_readfile(&iter.Dir, &iter.CurrentFile) < 0)
-            return n_error_msg("Failed to read directory entry data");
         return iter;
     }
 
