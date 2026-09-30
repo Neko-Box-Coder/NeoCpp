@@ -200,12 +200,17 @@ namespace ncpp
             memcpy(&data[index], &var, sizeof(T2));
         }
         
-        inline bool operator==(n_in const n_view<T>& other) 
+        inline bool operator==(n_in const n_view<const T>& other) 
         { 
             return  data && 
                     other.data && 
                     len == other.len && 
                     memcmp(data, other.data, sizeof(T) * len) == 0;
+        }
+        
+        inline bool operator!=(n_in const n_view<const T>& other) 
+        { 
+            return !operator==(other);
         }
         
         inline operator bool() const { return data && len; }
