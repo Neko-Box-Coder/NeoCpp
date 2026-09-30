@@ -243,20 +243,12 @@ namespace Nstd
                             index);
             return {};
         }
-        
-        inline n_result<void> Intern_AppendFormatBase(  n_view<const char> format, 
-                                                        n_ref int& index, 
-                                                        const char* arg)
-        {
-            Intern_AppendFormatBase(format, index, n_view<const char>(arg)).n_try();
-            return {};
-        }
-        
+
         inline n_result<void> Intern_AppendFormatBase(  n_view<const char> format, 
                                                         n_ref int& index, 
                                                         const Nstd::String arg)
         {
-            Intern_AppendFormatBase(format, index, arg.ToView()).n_try();
+            Intern_AppendFormatBase(format, index, arg.ToConstView()).n_try();
             return {};
         }
         
@@ -406,7 +398,7 @@ namespace Nstd
             return v;
         }
         
-        inline n_view<const char> ToView() const
+        inline n_view<const char> ToConstView() const
         {
             n_view<const char> v = Intern_Chars.ToView();
             if(v.len > 0)
