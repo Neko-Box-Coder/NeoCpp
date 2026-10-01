@@ -258,7 +258,7 @@ namespace ncpp
             )
     };
     
-    template<uint16 MSG_CAP = 128, uint16 TRACE_CAP = 16, uint8 ERROR_CAP = 1>
+    template<uint16 MSG_CAP = 1024, uint16 TRACE_CAP = 16, uint8 ERROR_CAP = 1>
     struct n_error_buffer
     {
         uint16 message_index;
