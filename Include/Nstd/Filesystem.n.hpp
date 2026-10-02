@@ -46,6 +46,7 @@ inline n_result<void> DeleteFile(n_view<const char> path);
 inline n_result<void> DeleteDirectory(n_ref Allocator& alloc, n_view<const char> path);
 inline n_result<void> DeletePath(n_ref Allocator& alloc, n_view<const char> path);
 inline n_result<void> Rename(n_view<const char> oldPath, n_view<const char> newPath);
+inline bool IsAbsolutePath(n_view<const char> path);
 ```
 
 Usage:
@@ -628,6 +629,32 @@ namespace Nstd
         #endif
 
         return {};
+    }
+    
+    inline bool IsAbsolutePath(n_view<const char> path)
+    {
+        #ifdef _WIN32
+            if(path.len > 2)
+            {
+                //unc
+                if(path[0] == '/' && path[1] == '/')
+                    return true;
+                else if(path[0] == '\\' && path[1] == '\\')
+                    return true;
+                //<name>:
+                else
+                {
+                    uint64 f = Nstd::FindSubString(path, "/");
+                    f = f == path.len ? Nstd::FindSubString(path, "\\") : f;
+                    return FindSubString(path.sub(0, f), ":") != f;
+                }
+            }
+            return false;
+        #elif defined (__unix__) || (defined (__APPLE__) && defined (__MACH__))
+            return path.len > 0 && path[0] == '/';
+        #else
+            #error "Unsupported platform"
+        #endif
     }
 }
 
