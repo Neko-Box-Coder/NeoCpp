@@ -219,7 +219,11 @@ namespace Nstd
             uint64 start = Len();
             Resize(start + lenNeeded).n_try();
             
-            n_check_eq_fmt( snprintf_(&At(start), lenNeeded + 1, formatClone.data, (int)arg.len, arg), 
+            n_check_eq_fmt( snprintf_(  &At(start), 
+                                        lenNeeded + 1, 
+                                        formatClone.data, 
+                                        (int)arg.len, 
+                                        arg.data), 
                             lenNeeded,
                             "Format substitution failed at %i", 
                             index);
