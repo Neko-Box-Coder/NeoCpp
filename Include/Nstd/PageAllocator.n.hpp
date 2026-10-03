@@ -259,6 +259,9 @@ namespace Nstd
             reserveSize = backing.len;
             
             usize pageCount = reserveSize / PAGE_SIZE;
+            if(pageCount == 0)
+                return n_error_msg("Backing too small, min size needs to be >= %zu", PAGE_SIZE);
+            
             if(pageCount > UINT16_MAX / 2 || BLOCK_SIZE * 8 * pageCount >= UINT32_MAX)
             {
                 return n_error_msg( "Block size too small for this much memory. "
@@ -271,16 +274,16 @@ namespace Nstd
             pa.PageCount = pageCount;
             pa.Blocks = backing;
             
-            n_check_true(BLOCK_SIZE * DATA_START_INDEX < Blocks.len);
-            pa.Blocks.sub(0, BLOCK_SIZE * DATA_START_INDEX).zero();
+            n_check_true(BLOCK_SIZE * pa.DATA_START_INDEX < Blocks.len);
+            pa.Blocks.sub(0, BLOCK_SIZE * pa.DATA_START_INDEX).zero();
             
             pa.Control = pa.Control.Init({ pa.Blocks.data, BLOCK_SIZE * pa.PageCount });
             pa.Key = pa.Key.Init({ &pa.Blocks[BLOCK_SIZE * pa.PageCount], BLOCK_SIZE * pa.PageCount });
-            pa.Control.SetBitsAt<1>(0, DATA_START_INDEX).n_try();
+            pa.Control.SetBitsAt<1>(0, pa.DATA_START_INDEX).n_try();
             pa.Key.SetBit<1>(0);
-            pa.UsedBlocksCount = DATA_START_INDEX;
+            pa.UsedBlocksCount = pa.DATA_START_INDEX;
             
-            pa.FreeNodeHead = DATA_START_INDEX;
+            pa.FreeNodeHead = pa.DATA_START_INDEX;
             FreeNode freeNode = { 
                                     pa.FreeNodeHead, 
                                     pa.FreeNodeHead, 

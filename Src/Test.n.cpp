@@ -146,7 +146,7 @@ n_result<int> Main(int, char**)
         Nstd::AllocatorPool<Nstd::FastAllocator<>> AllocPool = AllocPool.Init(alloc, 64).n_try();
         Nstd::AllocatorPool<Nstd::NodeAllocator<>> AllocPool2 = AllocPool2.Init(alloc, 64).n_try();
         Nstd::AllocatorPool<Nstd::HeapAllocator> AllocPool3 = AllocPool3.Init(alloc, 64).n_try();
-        Nstd::AllocatorPool<Nstd::PageAllocator<>> AllocPool4 = AllocPool4.Init(alloc, 64).n_try();
+        Nstd::AllocatorPool<Nstd::PageAllocator<>> AllocPool4 = AllocPool4.Init(alloc, 4096).n_try();
         
         Nstd::FastAllocator<> f;
         Nstd::NodeAllocator<> n;
