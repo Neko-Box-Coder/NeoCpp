@@ -17,6 +17,8 @@ namespace Nstd
     
     inline void BenchFree(void* ptr)
     {
+        if(!ptr)
+            return;
         uint64 sz;
         memcpy(&sz, (char*)ptr - sizeof(uint64), sizeof(uint64));
         MemUsed -= sz;
