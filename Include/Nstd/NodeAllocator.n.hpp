@@ -164,6 +164,7 @@ namespace Nstd
             if(totalBlocks < 2 || totalBlocks > UINT32_MAX)
                 return n_error_msg("Invalid reserve size: %zu", backing.len);
 
+            na.Memory = backing;
             na.BlockCount = (uint32)totalBlocks;
             na.FreeBlockCount = na.BlockCount;
 
