@@ -78,6 +78,76 @@ namespace Nstd
             string.at<false>(i) = (char)toupper((int)string.at<false>(i));
         return string;
     }
+    
+    inline bool IsAlpha(n_view<const char> string)
+    {
+        for(int i = 0; i < string.len; ++i)
+        {
+            if(!isalpha((int)string.at<false>(i)))
+                return false;
+        }
+        return (bool)string;
+    }
+
+    inline bool IsLower(n_view<const char> string)
+    {
+        for(int i = 0; i < string.len; ++i)
+        {
+            if(!islower((int)string.at<false>(i)))
+                return false;
+        }
+        return (bool)string;
+    }
+
+    inline bool IsUpper(n_view<const char> string)
+    {
+        for(int i = 0; i < string.len; ++i)
+        {
+            if(!isupper((int)string.at<false>(i)))
+                return false;
+        }
+        return (bool)string;
+    }
+    
+    inline bool IsDigit(n_view<const char> string)
+    {
+        for(int i = 0; i < string.len; ++i)
+        {
+            if(!isdigit((int)string.at<false>(i)))
+                return false;
+        }
+        return (bool)string;
+    }
+
+    inline bool IsHexDigit(n_view<const char> string)
+    {
+        for(int i = 0; i < string.len; ++i)
+        {
+            if(!isxdigit((int)string.at<false>(i)))
+                return false;
+        }
+        return (bool)string;
+    }
+    
+    inline bool IsSpaceTab(n_view<const char> string)
+    {
+        for(int i = 0; i < string.len; ++i)
+        {
+            if(!isblank((int)string.at<false>(i)))
+                return false;
+        }
+        return (bool)string;
+    }
+    
+    inline bool IsSymbol(n_view<const char> string)
+    {
+        for(int i = 0; i < string.len; ++i)
+        {
+            if(!ispunct((int)string.at<false>(i)))
+                return false;
+        }
+        return (bool)string;
+    }
 }
 
 #endif
