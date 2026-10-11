@@ -21,6 +21,8 @@ struct List
     
     inline T& At(uint64 index);
     inline const T& ConstAt(uint64 index) const;
+    inline T& Back();
+    inline const T& ConstBack() const;
     inline n_result<void> Reserve(uint64 size);
     inline n_result<void> ReserveAhead(uint64 size);
     inline n_result<void> Resize(uint64 size);
@@ -140,6 +142,16 @@ namespace Nstd
                 return Dummy;
             else
                 return Data[index];
+        }
+        
+        inline T& Back()
+        {
+            return Len > 0 ? Data[Len - 1] : Dummy;
+        }
+        
+        inline const T& ConstBack() const
+        {
+            return Len > 0 ? Data[Len - 1] : Dummy;
         }
         
         inline n_result<void> Reserve(uint64 size)
