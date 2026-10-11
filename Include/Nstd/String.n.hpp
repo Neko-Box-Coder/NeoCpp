@@ -15,7 +15,7 @@ struct String
     inline n_result<void> AppendString(n_view<const char> v);
     inline String InitString(n_ref Allocator& alloc, n_view<const char> v);
     inline char& At(uint64 index);
-    inline char At(uint64 index) const;
+    inline char ConstAt(uint64 index) const;
     inline n_result<void> Reserve(uint64 size);
     inline n_result<void> Resize(uint64 size);
     inline n_result<void> Add(char c);
@@ -30,7 +30,7 @@ struct String
     inline n_result<void> AppendFormat(n_view<const char> format, Ts... args);
     inline n_result<uint64> RemoveString(n_view<const char> v);
     inline n_view<char> ToView();
-    inline n_view<const char> ToView() const;
+    inline n_view<const char> ToConstView() const;
     inline n_result<void> Free();
 };
 ```
@@ -124,9 +124,9 @@ namespace Nstd
             return Intern_Chars.At(index);
         }
         
-        inline char At(uint64 index) const
+        inline char ConstAt(uint64 index) const
         {
-            return Intern_Chars.At(index);
+            return Intern_Chars.ConstAt(index);
         }
         
         inline n_result<void> Reserve(uint64 size)
@@ -405,7 +405,7 @@ namespace Nstd
         
         inline n_view<const char> ToConstView() const
         {
-            n_view<const char> v = Intern_Chars.ToView();
+            n_view<const char> v = Intern_Chars.ToConstView();
             if(v.len > 0)
                 v.len -= 1;
             return v;
