@@ -1,6 +1,32 @@
 #ifndef NSTD_STRING_UTIL_N_HPP
 #define NSTD_STRING_UTIL_N_HPP
 
+/*
+API:
+inline uint64 FindSubString(n_view<const char> string, 
+                            n_view<const char> sub, 
+                            uint64 startIndex = 0);
+inline uint64 ReverseFindSubString( n_view<const char> string, 
+                                    n_view<const char> sub, 
+                                    uint64 startIndex);
+inline n_view<char> ToLower(n_view<char> string);
+inline n_view<char> ToUpper(n_view<char> string);
+inline bool IsAlphaChar(char c);
+inline bool IsLowerChar(char c);
+inline bool IsUpperChar(char c);
+inline bool IsDigitChar(char c);
+inline bool IsHexDigitChar(char c);
+inline bool IsSpaceTabChar(char c);
+inline bool IsSymbolChar(char c);
+inline bool IsAlpha(n_view<const char> string);
+inline bool IsLower(n_view<const char> string);
+inline bool IsUpper(n_view<const char> string);
+inline bool IsDigit(n_view<const char> string);
+inline bool IsHexDigit(n_view<const char> string);
+inline bool IsSpaceTab(n_view<const char> string);
+inline bool IsSymbol(n_view<const char> string);
+*/
+
 #include "ncpp.n.hpp"
 
 #include <string.h>
@@ -77,6 +103,41 @@ namespace Nstd
         for(int i = 0; i < string.len; ++i)
             string.at<false>(i) = (char)toupper((int)string.at<false>(i));
         return string;
+    }
+    
+    inline bool IsAlphaChar(char c)
+    {
+        return isalpha((int)c);
+    }
+
+    inline bool IsLowerChar(char c)
+    {
+        return islower((int)c);
+    }
+
+    inline bool IsUpperChar(char c)
+    {
+        return isupper((int)c);
+    }
+    
+    inline bool IsDigitChar(char c)
+    {
+        return isdigit((int)c);
+    }
+
+    inline bool IsHexDigitChar(char c)
+    {
+        return isxdigit((int)c);
+    }
+    
+    inline bool IsSpaceTabChar(char c)
+    {
+        return isblank((int)c);
+    }
+    
+    inline bool IsSymbolChar(char c)
+    {
+        return ispunct((int)c);
     }
     
     inline bool IsAlpha(n_view<const char> string)
